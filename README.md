@@ -1,6 +1,6 @@
 # Real-Time Driver and Road Monitoring System for Risk Prediction
 
-**An intelligent multi-sensor IoT and ML-based system designed to predict driving risks in real-time through driver condition monitoring, road environment analysis, and personalized behavioral tracking.**
+> **An intelligent multi-sensor IoT and ML-based system designed to predict driving risks in real-time through driver condition monitoring, road environment analysis, and personalized behavioral tracking.**
 
 ---
 
@@ -38,7 +38,7 @@
 
 **How can real-time monitoring of driver condition, road environment, and personalized driving behavior be integrated to predict risks and reduce accidents?**
 
-The Real-Time Driver and Road Monitoring System addresses critical gaps in current road safety technologies by integrating multiple data streams—physiological signals, behavioral patterns, environmental conditions, and road information—to proactively predict and prevent accidents.
+The Real-Time Driver and Road Monitoring System addresses critical gaps in current road safety technologies by integrating multiple data streams physiological signals, behavioral patterns, environmental conditions, and road information to proactively predict and prevent accidents.
 
 ### Key Objectives
 
@@ -107,7 +107,7 @@ The system follows a **modular distributed architecture**:
 #### Backend & APIs
 
 - **Python** - ML model training and inference
-- **FastAPI** - RESTful API services
+- **Flask** - RESTful API services
 - **Google Weather API** - Weather condition data
 - **Custom Traffic Sign API** - Cloud-based sign detection
 
@@ -115,7 +115,7 @@ The system follows a **modular distributed architecture**:
 
 - **Bluetooth Low Energy (BLE)** - ESP32 to smartphone
 - **I2C** - Sensor communication
-- **HTTP/HTTPS** - API communication
+- **HTTP/HTTPS/WebSocket** - API communication
 
 #### Development Tools
 
@@ -169,8 +169,6 @@ driver-road-monitoring-system/
 │   ├── SWELL/                       # HRV fatigue dataset
 │   ├── traffic_signs/               # Traffic sign images
 │   └── drowsiness_images/           # Drowsy/non-drowsy faces
-│
-│
 └── README.md                        # This file
 ```
 
@@ -181,7 +179,7 @@ driver-road-monitoring-system/
 ### Prerequisites
 
 ```bash
-# Python 3.8 or higher
+# Python 3.10 or higher
 python --version
 
 # Node.js and npm (for any web interfaces)
@@ -275,7 +273,7 @@ python behavior_monitor.py
 
 ### Fatigue Detection System (IT22211514)
 
-**Researcher:** D.L.R Dilochana
+**Member:** D.L.R Dilochana
 
 **Objective:** Long-term driver fatigue monitoring using physiological and behavioral indicators
 
@@ -291,7 +289,7 @@ python behavior_monitor.py
 
 - **Accuracy:** 89% validation accuracy
 - **Model:** Random Forest Classifier
-- **Dataset:** SWELL (Stress, Workload, Emotion, Learning)
+- **Dataset:** SWELL
 - **Classes:** 3-class (Relaxed, Time Pressure, Stressed)
 - **Deployment:** CPU-only (no GPU required)
 
@@ -304,7 +302,7 @@ python behavior_monitor.py
 
 ### Drowsiness Detection System (IT22255860)
 
-**Researcher:** Pinsara T.H.A.K
+**Member:** Pinsara T.H.A.K
 
 **Objective:** Multi-sensor drowsiness detection combining visual and physiological data
 
@@ -332,7 +330,7 @@ python behavior_monitor.py
 
 ### Road & Weather Monitoring (IT22257468)
 
-**Researcher:** Samoda T.W.O
+**Member:** Samoda T.W.O
 
 **Objective:** Real-time road sign detection and weather-aware speed monitoring
 
@@ -361,7 +359,7 @@ python behavior_monitor.py
 
 ### Behavioral Deviation Detection (IT22134226)
 
-**Researcher:** Senadheera S.C.C
+**Member:** Senadheera S.C.C
 
 **Objective:** Personalized driving behavior analysis for early risk detection
 
@@ -442,7 +440,7 @@ python behavior_monitor.py
 
 1. **Hardware Dependencies**
 
-   - Requires specific sensor modules (MAX30102, AHT20)
+   - Requires specific sensor modules (MAX30102, AHT20, NEO-M8N, KY-040)
    - ESP32-CAM needed for road monitoring
    - Smartphone with BLE and GPS required
 
@@ -525,7 +523,7 @@ We express our sincere gratitude to:
 ---
 <div align="center">
 
-Made with ❤️ by Team 25-26J-291  
+Team 25-26J-291  
 Sri Lanka Institute of Information Technology
 
 </div>
