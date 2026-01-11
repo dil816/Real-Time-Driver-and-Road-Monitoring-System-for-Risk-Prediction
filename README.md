@@ -1,10 +1,10 @@
-# 🚗 Real-Time Driver and Road Monitoring System for Risk Prediction
+# Real-Time Driver and Road Monitoring System for Risk Prediction
 
-**An intelligent multi-sensor IoT and ML-based system designed to predict driving risks in real-time through driver condition monitoring, road environment analysis, and personalized behavioral tracking.**
+> **An intelligent multi-sensor IoT and ML-based system designed to predict driving risks in real-time through driver condition monitoring, road environment analysis, and personalized behavioral tracking.**
 
 ---
 
-## 📌 Project Information
+## Project Information
 
 **Project Code:** 25-26J-291  
 **Degree Program:** BSc (Hons) in Information Technology  
@@ -14,38 +14,38 @@
 
 ---
 
-## 👥 Group Members
+## Group Members
 
-| Student ID | Name             | Component                                                | Branch                                   |
-| ---------- | ---------------- | -------------------------------------------------------- | ---------------------------------------- |
-| IT22211514 | D.L.R Dilochana  | Fatigue Detection System for Long-Term Driver Monitoring | IT22211514-Dilochana-Fatigue-Detection   |
-| IT22255860 | Pinsara T.H.A.K  | Multi-Sensor Driver Drowsiness Detection                 | IT22255860-Pinsara-Drowsiness-Detection  |
-| IT22257468 | Samoda T.W.O     | Road Sign & Weather Condition Monitoring                 | IT22257468-Samoda-Road-Monitoring        |
-| IT22134226 | Senadheera S.C.C | Personalized Driver Behavioral Deviation Detection       | IT22134226-Senadheera-Behavior-Detection |
-
----
-
-## 🎓 Supervisors
-
-- **Primary Supervisor:** [Supervisor Name]
-- **Co-Supervisor:** [Co-Supervisor Name]
+| Student ID | Name             | Component                                                | Branch                |
+| ---------- | ---------------- | -------------------------------------------------------- | --------------------- |
+| IT22211514 | D.L.R Dilochana  | Fatigue Detection System for Long-Term Driver Monitoring | Fatigue-Detection     |
+| IT22255860 | Pinsara T.H.A.K  | Multi-Sensor Driver Drowsiness Detection                 | Drowsiness-Detection  |
+| IT22257468 | Samoda T.W.O     | Road Sign & Weather Condition Monitoring                 | Road-Monitoring       |
+| IT22134226 | Senadheera S.C.C | Personalized Driver Behavioral Deviation Detection       | Behavior-Detection    |
 
 ---
 
-## 🧠 Project Overview
+## Supervisors
+
+- **Primary Supervisor:** Ms. Manori Gamage
+- **Co-Supervisor:** Mrs. Nelum Amarasena
+
+---
+
+## Project Overview
 
 ### Research Problem
 
 **How can real-time monitoring of driver condition, road environment, and personalized driving behavior be integrated to predict risks and reduce accidents?**
 
-The Real-Time Driver and Road Monitoring System addresses critical gaps in current road safety technologies by integrating multiple data streams—physiological signals, behavioral patterns, environmental conditions, and road information—to proactively predict and prevent accidents.
+The Real-Time Driver and Road Monitoring System addresses critical gaps in current road safety technologies by integrating multiple data streams physiological signals, behavioral patterns, environmental conditions, and road information to proactively predict and prevent accidents.
 
 ### Key Objectives
 
-1. ✅ **Fatigue Detection** - Long-term driver monitoring using HRV analysis and behavioral indicators
-2. ✅ **Drowsiness Detection** - Multi-sensor physiological and environmental monitoring
-3. ✅ **Road Monitoring** - Real-time traffic sign detection and weather condition alerts
-4. ✅ **Behavioral Analysis** - Personalized driving pattern deviation detection
+1. **Fatigue Detection** - Long-term driver monitoring using HRV analysis and behavioral indicators
+2. **Drowsiness Detection** - Multi-sensor physiological and environmental monitoring
+3. **Road Monitoring** - Real-time traffic sign detection and weather condition alerts
+4. **Behavioral Analysis** - Personalized driving pattern deviation detection
 
 ### Why This Matters
 
@@ -58,7 +58,7 @@ Our solution provides a **holistic, adaptive, and intelligent approach** to road
 
 ---
 
-## 🏗 System Architecture
+## System Architecture
 <img width="4531" height="3415" alt="Untitled diagram-2026-01-11-155819" src="https://github.com/user-attachments/assets/777d71d2-c406-4203-b6a8-f868b4a969f0" />
 
 The system follows a **modular distributed architecture**:
@@ -70,7 +70,7 @@ The system follows a **modular distributed architecture**:
 
 ---
 
-## 🛠 Technology Stack
+## Technology Stack
 
 ### Hardware Components
 
@@ -78,7 +78,10 @@ The system follows a **modular distributed architecture**:
 | ------------------ | ----------- | ------------------------------------- |
 | Microcontroller    | ESP32       | Main processing and communication hub |
 | Camera Module      | ESP32-CAM   | Road sign and environment capture     |
-| SpO₂ Sensor        | MAX30102    | Blood oxygen level monitoring         |
+| Pulse Oximeter and Heart Rate Sensor| MAX30102    | Blood oxygen level and Heart Rate monitoring|
+| Light Intensity Sensor Module| BH1750FVI   | Digital light intensity detecting|
+| GPS Module| NEO-M8N   | Offline location and speed estimation|
+| Rotary Encoder Module| KY-040 | Streering wheel angle estimation|
 | Temperature Sensor | AHT20       | Cabin temperature monitoring          |
 | Smartphone         | Android/iOS | GPS, processing, and user interface   |
 
@@ -104,7 +107,7 @@ The system follows a **modular distributed architecture**:
 #### Backend & APIs
 
 - **Python** - ML model training and inference
-- **FastAPI** - RESTful API services
+- **Flask** - RESTful API services
 - **Google Weather API** - Weather condition data
 - **Custom Traffic Sign API** - Cloud-based sign detection
 
@@ -112,7 +115,7 @@ The system follows a **modular distributed architecture**:
 
 - **Bluetooth Low Energy (BLE)** - ESP32 to smartphone
 - **I2C** - Sensor communication
-- **HTTP/HTTPS** - API communication
+- **HTTP/HTTPS/WebSocket** - API communication
 
 #### Development Tools
 
@@ -122,7 +125,7 @@ The system follows a **modular distributed architecture**:
 
 ---
 
-## 📂 Project Structure
+## Project Structure
 
 ```
 driver-road-monitoring-system/
@@ -166,19 +169,17 @@ driver-road-monitoring-system/
 │   ├── SWELL/                       # HRV fatigue dataset
 │   ├── traffic_signs/               # Traffic sign images
 │   └── drowsiness_images/           # Drowsy/non-drowsy faces
-│
-│
 └── README.md                        # This file
 ```
 
 ---
 
-## ⚙️ Installation and Setup
+## Installation and Setup
 
 ### Prerequisites
 
 ```bash
-# Python 3.8 or higher
+# Python 3.10 or higher
 python --version
 
 # Node.js and npm (for any web interfaces)
@@ -221,19 +222,7 @@ cd road-monitoring/flutter_app
 flutter pub get
 ```
 
-### 4. Configure ESP32 Firmware
-
-```bash
-# Open Arduino IDE
-# Install ESP32 board support
-# Install required libraries:
-#   - MAX30102
-#   - AHT20
-#   - BLE
-# Upload firmware to ESP32 devices
-```
-
-### 5. Environment Configuration
+### 4. Environment Configuration
 
 Create `.env` files in respective component directories:
 
@@ -242,16 +231,13 @@ Create `.env` files in respective component directories:
 WEATHER_API_KEY=your_weather_api_key
 TRAFFIC_SIGN_API_URL=your_api_url
 
-# Database (if applicable)
-MONGODB_URI=your_mongodb_connection_string
-
 # Model Paths
 FATIGUE_MODEL_PATH=./models/random_forest_fatigue.pkl
 DROWSINESS_MODEL_PATH=./models/mobilenet_drowsiness.h5
 YOLO_MODEL_PATH=./models/yolov8_traffic_signs.pt
 ```
 
-### 6. Run the System
+### 5. Run the System
 
 #### Fatigue Detection Module
 
@@ -283,27 +269,27 @@ python behavior_monitor.py
 
 ---
 
-## 📊 Component Details
+## Component Details
 
-### 1️⃣ Fatigue Detection System (IT22211514)
+### Fatigue Detection System (IT22211514)
 
-**Researcher:** D.L.R Dilochana
+**Member:** D.L.R Dilochana
 
 **Objective:** Long-term driver fatigue monitoring using physiological and behavioral indicators
 
 **Key Features:**
 
-- ❤️ Heart Rate Variability (HRV) analysis with 19 features
-- 😴 Yawning detection using MediaPipe face mesh
-- 🎯 Head pose estimation for attention monitoring
-- 🌡️ Environmental factor integration (light, weather, GPS)
-- 🧮 Fuzzy logic for multi-stream data fusion
+- Heart Rate Variability (HRV) analysis with 19 features
+- Yawning detection using MediaPipe face mesh
+- Head pose estimation for attention monitoring
+- Environmental factor integration (light, weather, GPS)
+- Fuzzy logic for multi-stream data fusion
 
 **Performance:**
 
 - **Accuracy:** 89% validation accuracy
 - **Model:** Random Forest Classifier
-- **Dataset:** SWELL (Stress, Workload, Emotion, Learning)
+- **Dataset:** SWELL
 - **Classes:** 3-class (Relaxed, Time Pressure, Stressed)
 - **Deployment:** CPU-only (no GPU required)
 
@@ -314,19 +300,19 @@ python behavior_monitor.py
 
 ---
 
-### 2️⃣ Drowsiness Detection System (IT22255860)
+### Drowsiness Detection System (IT22255860)
 
-**Researcher:** Pinsara T.H.A.K
+**Member:** Pinsara T.H.A.K
 
 **Objective:** Multi-sensor drowsiness detection combining visual and physiological data
 
 **Key Features:**
 
-- 👁️ CNN-based facial drowsiness classification
-- 🩸 Real-time SpO₂ monitoring (WHO-approved thresholds)
-- 🌡️ Cabin temperature assessment
-- ⚖️ Hybrid decision fusion (CNN + sensors)
-- 📊 Weighted risk scoring system
+- CNN-based facial drowsiness classification
+- Real-time SpO₂ monitoring (WHO-approved thresholds)
+- Cabin temperature assessment
+- Hybrid decision fusion (CNN + sensors)
+- Weighted risk scoring system
 
 **Performance:**
 
@@ -342,19 +328,19 @@ python behavior_monitor.py
 
 ---
 
-### 3️⃣ Road & Weather Monitoring (IT22257468)
+### Road & Weather Monitoring (IT22257468)
 
-**Researcher:** Samoda T.W.O
+**Member:** Samoda T.W.O
 
 **Objective:** Real-time road sign detection and weather-aware speed monitoring
 
 **Key Features:**
 
-- 🚦 Traffic sign detection (37 classes)
-- 📍 GPS-based real-time speed tracking
-- ⚠️ Overspeed warnings based on detected limits
-- 🌦️ Live weather condition monitoring
-- 📱 Mobile dashboard with visual alerts
+- Traffic sign detection (37 classes)
+- GPS-based real-time speed tracking
+- Overspeed warnings based on detected limits
+- Live weather condition monitoring
+- Mobile dashboard with visual alerts
 
 **Performance:**
 
@@ -371,19 +357,19 @@ python behavior_monitor.py
 
 ---
 
-### 4️⃣ Behavioral Deviation Detection (IT22134226)
+### Behavioral Deviation Detection (IT22134226)
 
-**Researcher:** Senadheera S.C.C
+**Member:** Senadheera S.C.C
 
 **Objective:** Personalized driving behavior analysis for early risk detection
 
 **Key Features:**
 
-- 🎯 Real-time steering behavior monitoring
-- 👤 Driver-specific baseline profiling
-- 🔍 Hybrid anomaly detection (statistical + ML)
-- 🔄 Adaptive threshold replacement
-- 🔒 Privacy-preserving design (no identity storage)
+- Real-time steering behavior monitoring
+- Driver-specific baseline profiling
+- Hybrid anomaly detection (statistical + ML)
+- Adaptive threshold replacement
+- Privacy-preserving design (no identity storage)
 
 **Performance:**
 
@@ -399,7 +385,7 @@ python behavior_monitor.py
 
 ---
 
-## 🧪 Testing
+## Testing
 
 ### Testing Methodology
 
@@ -425,12 +411,12 @@ python behavior_monitor.py
 
 | Component              | Test Type            | Result      |
 | ---------------------- | -------------------- | ----------- |
-| Fatigue Detection      | Model Accuracy       | 89% ✅      |
-| Drowsiness Detection   | Real-time Processing | Pass ✅     |
-| Traffic Sign Detection | Model Accuracy       | 88.4% ✅    |
-| Behavioral Detection   | User Feedback        | Positive ✅ |
-| BLE Communication      | Latency Test         | <100ms ✅   |
-| Alert System           | Response Time        | <500ms ✅   |
+| Fatigue Detection      | Model Accuracy       | 89%       |
+| Drowsiness Detection   | Real-time Processing | Pass      |
+| Traffic Sign Detection | Model Accuracy       | 88.4%     |
+| Behavioral Detection   | User Feedback        | Positive  |
+| BLE Communication      | Latency Test         | <100ms    |
+| Alert System           | Response Time        | <500ms    |
 
 ### User Feedback Summary
 
@@ -448,13 +434,13 @@ python behavior_monitor.py
 
 ---
 
-## 🚧 Limitations
+## Limitations
 
 ### Current Constraints
 
 1. **Hardware Dependencies**
 
-   - Requires specific sensor modules (MAX30102, AHT20)
+   - Requires specific sensor modules (MAX30102, AHT20, NEO-M8N, KY-040)
    - ESP32-CAM needed for road monitoring
    - Smartphone with BLE and GPS required
 
@@ -481,30 +467,30 @@ python behavior_monitor.py
 
 ---
 
-## 🚀 Future Enhancements
+## Future Enhancements
 
 ### Planned Improvements
 
 #### Short-term (6 months)
 
-- ✨ **Offline Sign Detection** - On-device YOLOv8 deployment
-- 🔋 **Battery Optimization** - Efficient sensor polling and processing
-- 📱 **iOS Support** - Expand mobile app to iOS platform
-- 🎨 **UI/UX Enhancement** - Improved dashboard and alert visualization
+- **Offline Sign Detection** - On-device YOLOv8 deployment
+- **Battery Optimization** - Efficient sensor polling and processing
+- **iOS Support** - Expand mobile app to iOS platform
+- **UI/UX Enhancement** - Improved dashboard and alert visualization
 
 #### Medium-term (1 year)
 
-- 🤖 **Advanced AI Integration** - Deep learning for behavior prediction
-- 🚗 **CAN Bus Integration** - Direct vehicle telemetry access
-- ☁️ **Cloud Analytics** - Long-term driver behavior insights
-- 🌐 **Multi-language Support** - Interface localization
+- **Advanced AI Integration** - Deep learning for behavior prediction
+- **CAN Bus Integration** - Direct vehicle telemetry access
+- **Cloud Analytics** - Long-term driver behavior insights
+- **Multi-language Support** - Interface localization
 
 #### Long-term (2+ years)
 
-- 🧠 **Federated Learning** - Privacy-preserving model improvement
-- 🔗 **V2V Communication** - Vehicle-to-vehicle risk sharing
-- 🏭 **Fleet Management** - Commercial vehicle monitoring system
-- 📊 **Big Data Analytics** - Population-level safety insights
+- **Federated Learning** - Privacy-preserving model improvement
+- **V2V Communication** - Vehicle-to-vehicle risk sharing
+- **Fleet Management** - Commercial vehicle monitoring system
+- **Big Data Analytics** - Population-level safety insights
 
 ### Research Extensions
 
@@ -515,7 +501,7 @@ python behavior_monitor.py
 
 ---
 
-## 📜 License
+## License
 
 This project is developed for **academic purposes** under the BSc (Hons) in Information Technology program at Sri Lanka Institute of Information Technology (SLIIT).
 
@@ -523,7 +509,7 @@ This project is developed for **academic purposes** under the BSc (Hons) in Info
 
 ---
 
-## 🙏 Acknowledgements
+## Acknowledgements
 
 We express our sincere gratitude to:
 
@@ -535,36 +521,9 @@ We express our sincere gratitude to:
 - **Family & Friends** - For continuous support and encouragement
 
 ---
-
-## 📞 Contact & Support
-
-For questions, suggestions, or collaboration opportunities:
-
-- **Project Lead:** D.L.R Dilochana (IT22211514)
-- **Email:** [project-email@example.com]
-- **GitHub Issues:** [Report bugs or request features](https://github.com/your-org/driver-road-monitoring-system/issues)
-
----
-
-## 📚 Publications & Presentations
-
-- Research Paper: [Link to paper]
-- Project Presentation: [Link to slides]
-- Demo Video: [Link to video]
-
----
-
 <div align="center">
 
-**⚠️ Safety Notice**
-
-This system is designed for **driver assistance and research purposes only**.  
-It should **NOT replace** attentive driving practices, adherence to traffic regulations, or proper vehicle maintenance.  
-Always remain alert and in control of your vehicle.
-
----
-
-Made with ❤️ by Team 25-26J-291  
+Team 25-26J-291  
 Sri Lanka Institute of Information Technology
 
 </div>
