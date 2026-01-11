@@ -10,7 +10,7 @@
 **Degree Program:** BSc (Hons) in Information Technology  
 **Institution:** Sri Lanka Institute of Information Technology (SLIIT)
 
-**Project Repository Link:** [GitHub Repository](#)
+**Project Repository Link:** [GitHub Repository](https://github.com/dil816/Real-Time-Driver-and-Road-Monitoring-System-for-Risk-Prediction.git)
 
 ---
 
