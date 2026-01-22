@@ -1,20 +1,16 @@
 import asyncio
 import logging
+from datetime import datetime
+from typing import Optional, Dict, List
+import queue
+import threading
 import time
 from collections import deque
-from datetime import datetime
-from typing import Optional, Dict, List, Tuple
-
 import cv2
 import mediapipe as mp
 import numpy as np
 
-from BehavioralWindowManager import BehavioralWindowManager
-
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -29,6 +25,10 @@ class BehaviouralDetectorAsync:
         self.model_path = model_path
         self.buffer_size = buffer_size
         self.behavioral_interval = behavioural_interval
+
+        self.source = 0
+        self.cap = None
+        self.fps = 30
 
         # Yawn detection parameters
         self.yawn_counter = 0
@@ -74,6 +74,20 @@ class BehaviouralDetectorAsync:
         self.FaceLandmarker = FaceLandmarker
         self.landmarker = FaceLandmarker.create_from_options(self.options)
         logger.info("MediaPipe Face Landmarker initialized")
+
+    async def connect(self) -> bool:
+        """Initialize video capture."""
+        try:
+            self.cap = cv2.VideoCapture(self.source)
+            if not self.cap.isOpened():
+                logger.error(f"Failed to open video source: {self.source}")
+                return False
+
+            logger.info(f"Video capture initialized: {self.source}")
+            return True
+        except Exception as e:
+            logger.error(f"Error initializing video capture: {e}")
+            return False
 
     def calculate_mouth_aspect_ratio(self, face_landmarks, img_w, img_h):
         """Calculate Mouth Aspect Ratio for yawn detection."""
@@ -165,10 +179,10 @@ class BehaviouralDetectorAsync:
             self.yawning = False
         return self.yawning
 
-    async def process_frame(self, frame: np.ndarray, timestamp_ms: int) -> Tuple[Optional[Dict], np.ndarray, Tuple]:
+    async def process_frame(self, frame: np.ndarray, timestamp_ms: int) -> Optional[Dict]:
         """
         Process a single frame through MediaPipe.
-        Returns: (data_point, frame, nose_2d) for display purposes.
+        Returns detection results without modifying the frame.
         """
         try:
             img_h, img_w, _ = frame.shape
@@ -209,30 +223,90 @@ class BehaviouralDetectorAsync:
                     async with self.buffer_lock:
                         self.bhv_feature_queue.append(data_point)
 
-                    self.frames_processed += 1
-                    return data_point, frame, nose_2d
+                    self._draw_annotations(frame, direction_text, x_angle, y_angle, z_angle,
+                                           mar, is_yawning, img_w, img_h)
 
-            return None, frame, None
+                    self.frames_processed += 1
+                    return data_point
+
+            return None
 
         except Exception as e:
             self.inference_failures += 1
             logger.error(f"Error processing frame: {e}")
-            return None, frame, None
+            return None
 
-    async def queue_frame(self, frame: np.ndarray) -> bool:
-        """Queue a frame for processing."""
-        try:
-            timestamp_ms = int(time.time() * 1000)
-            await asyncio.wait_for(
-                self.frame_queue.put((frame, timestamp_ms)),
-                timeout=0.05
-            )
-            return True
-        except asyncio.TimeoutError:
-            logger.warning("Behavioral detector queue full, dropping frame")
-            return False
+    def _draw_annotations(self, frame, direction_text, x_angle, y_angle, z_angle,
+                          mar, is_yawning, img_w, img_h):
+        cv2.putText(frame, direction_text, (20, 50),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+        cv2.putText(frame, f"x: {np.round(x_angle, 2)}", (img_w - 150, 50),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+        cv2.putText(frame, f"y: {np.round(y_angle, 2)}", (img_w - 150, 80),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+        cv2.putText(frame, f"z: {np.round(z_angle, 2)}", (img_w - 150, 110),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+        cv2.putText(frame, f"MAR: {mar:.2f}", (20, 90),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
+        cv2.putText(frame, f"Yawns: {self.total_yawns}", (20, img_h - 60),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+        cv2.putText(frame, f"Buffer: {len(self.bhv_feature_queue)}", (20, img_h - 90),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+        if is_yawning:
+            cv2.putText(frame, "YAWNING!", (20, 120),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 0, 255), 3)
 
-    async def processing_loop(self, display_manager: Optional['BehavioralWindowManager'] = None):
+    async def queue_frame(self):
+        self.running = True
+        frame_interval = 1.0 / self.fps
+
+        while self.running:
+            try:
+                start_time = time.time()
+
+                ret, frame = self.cap.read()
+                if not ret:
+                    logger.warning("Failed to read frame")
+                    await asyncio.sleep(0.1)
+                    continue
+
+                # Flip frame (like your original code)
+                frame = cv2.flip(frame, 1)
+
+                # Queue for behavioral processing
+                # await self.behavioral_detector.queue_frame(frame)
+                timestamp_ms = int(time.time() * 1000)
+                await asyncio.wait_for(
+                    self.frame_queue.put((frame, timestamp_ms)),
+                    timeout=0.05
+                )
+
+                # Maintain FPS
+                elapsed = time.time() - start_time
+                sleep_time = max(0, frame_interval - elapsed)
+                await asyncio.sleep(sleep_time)
+
+            except asyncio.CancelledError:
+                logger.info("Video read loop cancelled")
+                break
+            except asyncio.TimeoutError:
+                logger.warning("Behavioral detector queue full, dropping frame")
+            except Exception as e:
+                logger.error(f"Error in video read loop: {e}")
+                await asyncio.sleep(0.1)
+        # """Queue a frame for processing."""
+        # try:
+        #     timestamp_ms = int(time.time() * 1000)
+        #     await asyncio.wait_for(
+        #         self.frame_queue.put((frame, timestamp_ms)),
+        #         timeout=0.05
+        #     )
+        #     return True
+        # except asyncio.TimeoutError:
+        #     logger.warning("Behavioral detector queue full, dropping frame")
+        #     return False
+
+    async def processing_loop(self):
         """Continuously process frames from queue."""
         self.running = True
         logger.info("Behavioral detector processing loop started")
@@ -246,18 +320,12 @@ class BehaviouralDetectorAsync:
                 )
 
                 # Process frame
-                start_time = time.time()
-                result, processed_frame, nose_2d = await self.process_frame(frame, timestamp_ms)
-                process_time = time.time() - start_time
+                result = await self.process_frame(frame, timestamp_ms)
 
                 if result:
                     # Store in predictions
                     async with self.predictions_lock:
                         self.predictions.append(result)
-
-                    # Queue for display if display manager exists
-                    if display_manager:
-                        display_manager.queue_frame_for_display(processed_frame, result, process_time)
 
             except asyncio.TimeoutError:
                 continue
@@ -348,3 +416,7 @@ class BehaviouralDetectorAsync:
         if self.landmarker:
             self.landmarker.close()
         logger.info("Behavioral detector cleaned up")
+        if self.cap:
+            self.cap.release()
+            cv2.destroyAllWindows()
+            logger.info("Video capture released")

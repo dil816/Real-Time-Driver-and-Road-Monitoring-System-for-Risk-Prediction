@@ -6,7 +6,6 @@ from datetime import datetime
 import numpy as np
 from fastapi import FastAPI
 
-from BehavioralWindowManager import BehavioralWindowManager
 from BehaviouralDetectorAsync import BehaviouralDetectorAsync
 from DataPipeline import DataPipeline
 from SerialDataReader import SerialDataReader
@@ -22,10 +21,10 @@ serial_reader = None
 read_task = None
 process_task = None
 
+# ADD THESE NEW VARIABLES:
 behavioral_detector = None
 behavioral_process_task = None
 behavioral_aggregate_task = None
-behavioral_display_manager = None  # ADD THIS
 video_reader = None
 video_read_task = None
 
@@ -36,9 +35,6 @@ async def lifespan(app: FastAPI):
     global serial_reader, read_task, process_task
     global behavioral_detector, behavioral_process_task, behavioral_aggregate_task
     global video_reader, video_read_task
-
-    # Add this global variable at the top with others:
-    global behavioral_display_manager
 
     # Startup - Existing pipeline
     await pipeline.start()
@@ -52,33 +48,25 @@ async def lifespan(app: FastAPI):
     # NEW: Behavioral Detector Pipeline
     try:
         # Initialize behavioral detector
-        model_path = "path/to/your/face_landmarker.task"  # UPDATE THIS PATH
+        model_path = "face_landmarker.task"  # UPDATE THIS PATH
         behavioral_detector = BehaviouralDetectorAsync(
             model_path=model_path,
             buffer_size=500,
             behavioural_interval=30
         )
 
-        # Initialize display manager
-        behavioral_display_manager = BehavioralWindowManager(
-            behavioral_detector,
-            window_name="Behavioral Detection - Head Pose + Yawn"
-        )
-        behavioral_display_manager.start()
-
-        # Start processing loops (pass display manager)
-        behavioral_process_task = asyncio.create_task(
-            behavioral_detector.processing_loop(behavioral_display_manager)
-        )
+        # Start processing loops
+        behavioral_process_task = asyncio.create_task(behavioral_detector.processing_loop())
         behavioral_aggregate_task = asyncio.create_task(behavioral_detector.aggregation_loop())
+        if await behavioral_detector.connect():
+            video_read_task = asyncio.create_task(behavioral_detector.queue_frame())
 
         logger.info("Behavioral detector pipeline started successfully")
 
         # Start video capture
-        video_reader = VideoCapture(behavioral_detector, source=0)
-        if await video_reader.connect():
-            video_read_task = asyncio.create_task(video_reader.read_loop())
-            logger.info("Video capture started")
+        # video_reader = VideoCapture(behavioral_detector, source=0)
+        # if await video_reader.connect():
+        #     video_read_task = asyncio.create_task(video_reader.read_loop())
 
     except Exception as e:
         logger.error(f"Failed to start behavioral detector: {e}")
@@ -110,10 +98,6 @@ async def lifespan(app: FastAPI):
         if video_read_task:
             video_read_task.cancel()
         await video_reader.disconnect()
-
-    # Stop display manager
-    if behavioral_display_manager:
-        behavioral_display_manager.stop()
 
     logger.info("Application shutdown complete")
 
