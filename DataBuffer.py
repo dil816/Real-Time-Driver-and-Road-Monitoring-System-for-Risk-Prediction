@@ -1,15 +1,11 @@
 import asyncio
 import logging
+import pandas as pd
+from typing import Optional
 from collections import deque
 from datetime import datetime
-from typing import List, Optional
 
-import pandas as pd
-
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 

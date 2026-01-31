@@ -3,7 +3,7 @@ import logging
 import numpy as np
 from datetime import datetime
 from DataBuffer import DataBuffer
-from DataProcessor import DataProcessor
+from HRVDataProcessor import HRVDataProcessor
 from MLInferenceEngine import MLInferenceEngine
 from MetricsCollector import MetricsCollector
 
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 class DataPipeline:
     def __init__(self, window_seconds: int = 30):
-        self.processor = DataProcessor()
+        self.hrv_processor = HRVDataProcessor()
         self.buffer = DataBuffer(window_seconds=window_seconds)
         self.ml_engine = MLInferenceEngine()
         self.metrics = MetricsCollector()
@@ -24,7 +24,7 @@ class DataPipeline:
             if len(data_array) == 0:
                 logger.warning("Received empty data array, skipping")
                 return
-            features = self.processor.extract_features(data_array)
+            features = self.hrv_processor.extract_features(data_array)
             await self.metrics.record_feature_extracted()
             timestamp = datetime.now()
             success = await self.buffer.add_row(features, timestamp)

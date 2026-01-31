@@ -1,17 +1,13 @@
 import logging
-from typing import List, Optional
-
 import numpy as np
+from typing import Optional
 from scipy.stats import kurtosis, skew
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-class DataProcessor:
+class HRVDataProcessor:
     @staticmethod
     def remove_outliers(rr: np.ndarray, threshold: float = 0.25) -> np.ndarray:
         """Remove outliers from RR intervals (critical for PPG)"""
@@ -56,7 +52,7 @@ class DataProcessor:
         # Remove outliers (important for PPG)
         if remove_outliers:
             rr_original_len = len(rr)
-            rr = DataProcessor.remove_outliers(rr)
+            rr = HRVDataProcessor.remove_outliers(rr)
             if len(rr) < 10:
                 logger.warning("Insufficient data after outlier removal")
                 return None

@@ -1,18 +1,16 @@
+import joblib
 import asyncio
 import logging
-from collections import deque
-from typing import Optional, List
-
-import joblib
 import numpy as np
 import pandas as pd
+from collections import deque
+from typing import Optional, List
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
 class MLInferenceEngine:
-
     def __init__(self):
         self.predictions = deque(maxlen=1000)
         self.model = None
