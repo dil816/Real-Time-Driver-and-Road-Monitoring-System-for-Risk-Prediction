@@ -5,11 +5,9 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 import numpy as np
 from fastapi import FastAPI
-
 from BehaviouralDetectorAsync import BehaviouralDetectorAsync
 from DataPipeline import DataPipeline
 from SerialDataReader import SerialDataReader
-from VideoCapture import VideoCapture
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -27,6 +25,7 @@ behavioral_process_task = None
 behavioral_aggregate_task = None
 video_reader = None
 video_read_task = None
+detector = None
 
 
 @asynccontextmanager
@@ -35,18 +34,32 @@ async def lifespan(app: FastAPI):
     global serial_reader, read_task, process_task
     global behavioral_detector, behavioral_process_task, behavioral_aggregate_task
     global video_reader, video_read_task
-
+    global detector
     # Startup - Existing pipeline
     await pipeline.start()
 
     # Serial reader (existing - uncomment when ready)
     serial_reader = SerialDataReader('COM3', 115200, pipeline)
-    if await serial_reader.connect():
-        read_task = asyncio.create_task(serial_reader.read_loop())
-        process_task = asyncio.create_task(serial_reader.process_loop())
+    # if await serial_reader.connect():
+    #     read_task = asyncio.create_task(serial_reader.read_loop())
+    #     process_task = asyncio.create_task(serial_reader.process_loop())
 
     # NEW: Behavioral Detector Pipeline
     try:
+
+        # Startup
+        # logger.info("Starting behavioral detector...")
+        # detector = BehaviouralDetectorAsync(
+        #     model_path="face_landmarker.task",
+        #     buffer_size=500,
+        #     behavioural_interval=30
+        # )
+        # await detector.start()
+        # logger.info("Detector started successfully")
+        #
+        # if await fdetector.connect():
+        #     fdetector.start()
+
         # Initialize behavioral detector
         model_path = "face_landmarker.task"  # UPDATE THIS PATH
         behavioral_detector = BehaviouralDetectorAsync(
@@ -54,6 +67,12 @@ async def lifespan(app: FastAPI):
             buffer_size=500,
             behavioural_interval=30
         )
+
+        # detector = BehaviouralDetectorAsync(
+        #     model_path="face_landmarker.task",
+        #     display_window=True  # Shows window with annotations
+        # )
+        # await detector.start()
 
         # Start processing loops
         behavioral_process_task = asyncio.create_task(behavioral_detector.processing_loop())
@@ -75,6 +94,7 @@ async def lifespan(app: FastAPI):
     yield
 
     # Shutdown - Existing pipeline
+    # await detector.stop()
     if serial_reader:
         serial_reader.running = False
         if read_task:
@@ -98,6 +118,12 @@ async def lifespan(app: FastAPI):
         if video_read_task:
             video_read_task.cancel()
         await video_reader.disconnect()
+
+        # Shutdown
+    logger.info("Stopping detector...")
+    if detector:
+        await detector.stop()
+    logger.info("Detector stopped")
 
     logger.info("Application shutdown complete")
 

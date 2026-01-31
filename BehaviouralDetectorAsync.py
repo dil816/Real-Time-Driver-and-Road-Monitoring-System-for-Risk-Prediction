@@ -1,11 +1,9 @@
 import asyncio
 import logging
-from datetime import datetime
-from typing import Optional, Dict, List
-import queue
-import threading
 import time
 from collections import deque
+from datetime import datetime
+from typing import Optional, Dict, List
 import cv2
 import mediapipe as mp
 import numpy as np
@@ -15,11 +13,6 @@ logger = logging.getLogger(__name__)
 
 
 class BehaviouralDetectorAsync:
-    """
-    Async-compatible wrapper for BehaviouralDetector.
-    Integrates with FastAPI pipeline while maintaining original functionality.
-    """
-
     def __init__(self, model_path, buffer_size=500, behavioural_interval=30):
         self.running = False
         self.model_path = model_path
@@ -58,7 +51,6 @@ class BehaviouralDetectorAsync:
         self._init_mediapipe()
 
     def _init_mediapipe(self):
-        """Initialize MediaPipe Face Landmarker."""
         BaseOptions = mp.tasks.BaseOptions
         FaceLandmarker = mp.tasks.vision.FaceLandmarker
         FaceLandmarkerOptions = mp.tasks.vision.FaceLandmarkerOptions
@@ -76,7 +68,6 @@ class BehaviouralDetectorAsync:
         logger.info("MediaPipe Face Landmarker initialized")
 
     async def connect(self) -> bool:
-        """Initialize video capture."""
         try:
             self.cap = cv2.VideoCapture(self.source)
             if not self.cap.isOpened():
@@ -90,7 +81,6 @@ class BehaviouralDetectorAsync:
             return False
 
     def calculate_mouth_aspect_ratio(self, face_landmarks, img_w, img_h):
-        """Calculate Mouth Aspect Ratio for yawn detection."""
         if not face_landmarks or len(face_landmarks) < 312:
             return 0
 
@@ -116,7 +106,6 @@ class BehaviouralDetectorAsync:
 
     @staticmethod
     def calculate_head_pose(face_landmarks, img_w, img_h):
-        """Calculate head pose angles (pitch, yaw, roll)."""
         face_3d = []
         face_2d = []
         target_indices = [1, 33, 61, 199, 263, 291]
@@ -154,7 +143,6 @@ class BehaviouralDetectorAsync:
 
     @staticmethod
     def get_direction_text(x_angle, y_angle):
-        """Convert angles to direction text."""
         if y_angle < -10:
             return "Looking Left"
         elif y_angle > 10:
@@ -167,7 +155,6 @@ class BehaviouralDetectorAsync:
             return "Forward"
 
     def process_yawn_detection(self, mar):
-        """Detect yawning based on MAR threshold."""
         if mar > self.YAWN_MAR_THRESHOLD:
             self.yawn_counter += 1
             if self.yawn_counter >= self.YAWN_CONSEC_FRAMES:
@@ -180,10 +167,6 @@ class BehaviouralDetectorAsync:
         return self.yawning
 
     async def process_frame(self, frame: np.ndarray, timestamp_ms: int) -> Optional[Dict]:
-        """
-        Process a single frame through MediaPipe.
-        Returns detection results without modifying the frame.
-        """
         try:
             img_h, img_w, _ = frame.shape
 
@@ -223,9 +206,6 @@ class BehaviouralDetectorAsync:
                     async with self.buffer_lock:
                         self.bhv_feature_queue.append(data_point)
 
-                    self._draw_annotations(frame, direction_text, x_angle, y_angle, z_angle,
-                                           mar, is_yawning, img_w, img_h)
-
                     self.frames_processed += 1
                     return data_point
 
@@ -236,26 +216,6 @@ class BehaviouralDetectorAsync:
             logger.error(f"Error processing frame: {e}")
             return None
 
-    def _draw_annotations(self, frame, direction_text, x_angle, y_angle, z_angle,
-                          mar, is_yawning, img_w, img_h):
-        cv2.putText(frame, direction_text, (20, 50),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-        cv2.putText(frame, f"x: {np.round(x_angle, 2)}", (img_w - 150, 50),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-        cv2.putText(frame, f"y: {np.round(y_angle, 2)}", (img_w - 150, 80),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-        cv2.putText(frame, f"z: {np.round(z_angle, 2)}", (img_w - 150, 110),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-        cv2.putText(frame, f"MAR: {mar:.2f}", (20, 90),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
-        cv2.putText(frame, f"Yawns: {self.total_yawns}", (20, img_h - 60),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
-        cv2.putText(frame, f"Buffer: {len(self.bhv_feature_queue)}", (20, img_h - 90),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
-        if is_yawning:
-            cv2.putText(frame, "YAWNING!", (20, 120),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 0, 255), 3)
-
     async def queue_frame(self):
         self.running = True
         frame_interval = 1.0 / self.fps
@@ -264,7 +224,9 @@ class BehaviouralDetectorAsync:
             try:
                 start_time = time.time()
 
-                ret, frame = self.cap.read()
+                # ret, frame = self.cap.read()
+                loop = asyncio.get_event_loop()
+                ret, frame = await loop.run_in_executor(None, self.cap.read)
                 if not ret:
                     logger.warning("Failed to read frame")
                     await asyncio.sleep(0.1)
@@ -294,20 +256,8 @@ class BehaviouralDetectorAsync:
             except Exception as e:
                 logger.error(f"Error in video read loop: {e}")
                 await asyncio.sleep(0.1)
-        # """Queue a frame for processing."""
-        # try:
-        #     timestamp_ms = int(time.time() * 1000)
-        #     await asyncio.wait_for(
-        #         self.frame_queue.put((frame, timestamp_ms)),
-        #         timeout=0.05
-        #     )
-        #     return True
-        # except asyncio.TimeoutError:
-        #     logger.warning("Behavioral detector queue full, dropping frame")
-        #     return False
 
     async def processing_loop(self):
-        """Continuously process frames from queue."""
         self.running = True
         logger.info("Behavioral detector processing loop started")
 
@@ -336,10 +286,6 @@ class BehaviouralDetectorAsync:
                 logger.error(f"Error in behavioral processing loop: {e}")
 
     async def aggregation_loop(self):
-        """
-        Periodically aggregate buffered features (every 30 seconds).
-        This replaces your original model_processing_loop.
-        """
         self.running = True
         last_run_time = time.time()
         logger.info("Behavioral detector aggregation loop started")
