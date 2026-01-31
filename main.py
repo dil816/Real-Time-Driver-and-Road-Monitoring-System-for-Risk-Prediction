@@ -1,130 +1,96 @@
+import time
 import asyncio
 import logging
-import time
-from contextlib import asynccontextmanager
-from datetime import datetime
 import numpy as np
 from fastapi import FastAPI
-from BehaviouralDetectorAsync import BehaviouralDetectorAsync
+from datetime import datetime
 from DataPipeline import DataPipeline
+from contextlib import asynccontextmanager
 from SerialDataReader import SerialDataReader
+from BehaviouralDetectorAsync import BehaviouralDetectorAsync
 
-# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Global pipeline instance
 pipeline = DataPipeline(window_seconds=30)
 serial_reader = None
 read_task = None
 process_task = None
 
-# ADD THESE NEW VARIABLES:
 behavioral_detector = None
 behavioral_process_task = None
 behavioral_aggregate_task = None
-video_reader = None
 video_read_task = None
-detector = None
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app_: FastAPI):
     """Manage application lifecycle."""
     global serial_reader, read_task, process_task
     global behavioral_detector, behavioral_process_task, behavioral_aggregate_task
-    global video_reader, video_read_task
-    global detector
-    # Startup - Existing pipeline
+    global video_read_task
+
     await pipeline.start()
+    logger.info("Pipeline started")
 
-    # Serial reader (existing - uncomment when ready)
     serial_reader = SerialDataReader('COM3', 115200, pipeline)
-    # if await serial_reader.connect():
-    #     read_task = asyncio.create_task(serial_reader.read_loop())
-    #     process_task = asyncio.create_task(serial_reader.process_loop())
+    if await serial_reader.connect():
+        read_task = asyncio.create_task(serial_reader.read_loop())
+        process_task = asyncio.create_task(serial_reader.process_loop())
 
-    # NEW: Behavioral Detector Pipeline
     try:
-
-        # Startup
-        # logger.info("Starting behavioral detector...")
-        # detector = BehaviouralDetectorAsync(
-        #     model_path="face_landmarker.task",
-        #     buffer_size=500,
-        #     behavioural_interval=30
-        # )
-        # await detector.start()
-        # logger.info("Detector started successfully")
-        #
-        # if await fdetector.connect():
-        #     fdetector.start()
-
-        # Initialize behavioral detector
-        model_path = "face_landmarker.task"  # UPDATE THIS PATH
+        model_path = "face_landmarker.task"
         behavioral_detector = BehaviouralDetectorAsync(
             model_path=model_path,
             buffer_size=500,
             behavioural_interval=30
         )
-
-        # detector = BehaviouralDetectorAsync(
-        #     model_path="face_landmarker.task",
-        #     display_window=True  # Shows window with annotations
-        # )
-        # await detector.start()
-
-        # Start processing loops
-        behavioral_process_task = asyncio.create_task(behavioral_detector.processing_loop())
-        behavioral_aggregate_task = asyncio.create_task(behavioral_detector.aggregation_loop())
         if await behavioral_detector.connect():
+            behavioral_process_task = asyncio.create_task(behavioral_detector.processing_loop())
+            behavioral_aggregate_task = asyncio.create_task(behavioral_detector.aggregation_loop())
             video_read_task = asyncio.create_task(behavioral_detector.queue_frame())
-
-        logger.info("Behavioral detector pipeline started successfully")
-
-        # Start video capture
-        # video_reader = VideoCapture(behavioral_detector, source=0)
-        # if await video_reader.connect():
-        #     video_read_task = asyncio.create_task(video_reader.read_loop())
-
+            logger.info("Behavioral detector pipeline started successfully")
+        else:
+            logger.error("Failed to connect to video source")
+            behavioral_detector = None
     except Exception as e:
         logger.error(f"Failed to start behavioral detector: {e}")
-        # Don't crash - existing pipeline still works
 
     yield
 
-    # Shutdown - Existing pipeline
-    # await detector.stop()
+    logger.info("Starting application shutdown...")
+
     if serial_reader:
         serial_reader.running = False
-        if read_task:
-            read_task.cancel()
-        if process_task:
-            process_task.cancel()
+        tasks_to_cancel = []
+        if read_task and not read_task.done():
+            tasks_to_cancel.append(read_task)
+        if process_task and not process_task.done():
+            tasks_to_cancel.append(process_task)
+        for task in tasks_to_cancel:
+            task.cancel()
+        if tasks_to_cancel:
+            await asyncio.gather(*tasks_to_cancel, return_exceptions=True)
         await serial_reader.disconnect()
+        logger.info("Serial reader disconnected")
+
+    if behavioral_detector:
+        logger.info("Stopping behavioral detector...")
+        tasks_to_cancel = []
+        if behavioral_process_task and not behavioral_process_task.done():
+            tasks_to_cancel.append(behavioral_process_task)
+        if behavioral_aggregate_task and not behavioral_aggregate_task.done():
+            tasks_to_cancel.append(behavioral_aggregate_task)
+        if video_read_task and not video_read_task.done():
+            tasks_to_cancel.append(video_read_task)
+        for task in tasks_to_cancel:
+            task.cancel()
+        if tasks_to_cancel:
+            await asyncio.gather(*tasks_to_cancel, return_exceptions=True)
+            logger.info(f"Cancelled {len(tasks_to_cancel)} behavioral detector tasks")
 
     await pipeline.stop()
-
-    # NEW: Cleanup behavioral detector
-    if behavioral_detector:
-        behavioral_detector.running = False
-        if behavioral_process_task:
-            behavioral_process_task.cancel()
-        if behavioral_aggregate_task:
-            behavioral_aggregate_task.cancel()
-        behavioral_detector.cleanup()
-
-    if video_reader:
-        if video_read_task:
-            video_read_task.cancel()
-        await video_reader.disconnect()
-
-        # Shutdown
-    logger.info("Stopping detector...")
-    if detector:
-        await detector.stop()
-    logger.info("Detector stopped")
-
+    logger.info("Pipeline stopped")
     logger.info("Application shutdown complete")
 
 
