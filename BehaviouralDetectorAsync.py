@@ -18,35 +18,22 @@ class BehaviouralDetectorAsync:
         self.model_path = model_path
         self.buffer_size = buffer_size
         self.behavioral_interval = behavioural_interval
-
         self.source = 0
         self.cap = None
         self.fps = 30
-
-        # Yawn detection parameters
         self.yawn_counter = 0
         self.total_yawns = 0
         self.yawning = False
         self.YAWN_MAR_THRESHOLD = 0.65
         self.YAWN_CONSEC_FRAMES = 3
         self.MOUTH_VERTICAL_INDICES = [(13, 14), (78, 308), (81, 311)]
-
-        # Async-compatible queues and locks
         self.bhv_feature_queue = deque(maxlen=buffer_size)
         self.buffer_lock = asyncio.Lock()
-
-        # Predictions storage
         self.predictions = deque(maxlen=1000)
         self.predictions_lock = asyncio.Lock()
-
-        # Processing queue for incoming frames
         self.frame_queue = asyncio.Queue(maxsize=100)
-
-        # Metrics
         self.frames_processed = 0
         self.inference_failures = 0
-
-        # MediaPipe components
         self.landmarker = None
         self._init_mediapipe()
 
@@ -55,7 +42,6 @@ class BehaviouralDetectorAsync:
         FaceLandmarker = mp.tasks.vision.FaceLandmarker
         FaceLandmarkerOptions = mp.tasks.vision.FaceLandmarkerOptions
         VisionRunningMode = mp.tasks.vision.RunningMode
-
         self.options = FaceLandmarkerOptions(
             base_options=BaseOptions(model_asset_path=self.model_path),
             running_mode=VisionRunningMode.VIDEO,
@@ -73,7 +59,6 @@ class BehaviouralDetectorAsync:
             if not self.cap.isOpened():
                 logger.error(f"Failed to open video source: {self.source}")
                 return False
-
             logger.info(f"Video capture initialized: {self.source}")
             return True
         except Exception as e:
@@ -83,7 +68,6 @@ class BehaviouralDetectorAsync:
     def calculate_mouth_aspect_ratio(self, face_landmarks, img_w, img_h):
         if not face_landmarks or len(face_landmarks) < 312:
             return 0
-
         total_vertical_dist = 0
         for top_idx, bottom_idx in self.MOUTH_VERTICAL_INDICES:
             top = face_landmarks[top_idx]
@@ -91,16 +75,13 @@ class BehaviouralDetectorAsync:
             dx = (top.x - bottom.x) * img_w
             dy = (top.y - bottom.y) * img_h
             total_vertical_dist += np.sqrt(dx ** 2 + dy ** 2)
-
         left = face_landmarks[61]
         right = face_landmarks[291]
         dx = (left.x - right.x) * img_w
         dy = (left.y - right.y) * img_h
         horizontal_dist = np.sqrt(dx ** 2 + dy ** 2)
-
         if horizontal_dist == 0:
             return 0
-
         mar = (total_vertical_dist / len(self.MOUTH_VERTICAL_INDICES)) / horizontal_dist
         return mar
 
@@ -109,7 +90,6 @@ class BehaviouralDetectorAsync:
         face_3d = []
         face_2d = []
         target_indices = [1, 33, 61, 199, 263, 291]
-
         nose_2d = None
         for idx in target_indices:
             lm = face_landmarks[idx]
@@ -119,10 +99,8 @@ class BehaviouralDetectorAsync:
             x, y = int(lm.x * img_w), int(lm.y * img_h)
             face_2d.append([x, y])
             face_3d.append([x, y, lm.z])
-
         face_2d = np.array(face_2d, dtype=np.float64)
         face_3d = np.array(face_3d, dtype=np.float64)
-
         focal_length = 1 * img_w
         cam_matrix = np.array([
             [focal_length, 0, img_w / 2],
@@ -130,15 +108,12 @@ class BehaviouralDetectorAsync:
             [0, 0, 1]
         ])
         dist_matrix = np.zeros((4, 1), dtype=np.float64)
-
         success, rot_vec, trans_vec = cv2.solvePnP(face_3d, face_2d, cam_matrix, dist_matrix)
         rmat, _ = cv2.Rodrigues(rot_vec)
         angles, _, _, _, _, _ = cv2.RQDecomp3x3(rmat)
-
         x_angle = angles[0] * 360
         y_angle = angles[1] * 360
         z_angle = angles[2] * 360
-
         return x_angle, y_angle, z_angle, nose_2d
 
     @staticmethod
@@ -169,28 +144,17 @@ class BehaviouralDetectorAsync:
     async def process_frame(self, frame: np.ndarray, timestamp_ms: int) -> Optional[Dict]:
         try:
             img_h, img_w, _ = frame.shape
-
-            # Convert to RGB for MediaPipe
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
-
-            # Run MediaPipe detection
             results = self.landmarker.detect_for_video(mp_image, timestamp_ms)
-
             if results.face_landmarks:
                 for face_landmarks in results.face_landmarks:
-                    # Calculate head pose
                     x_angle, y_angle, z_angle, nose_2d = self.calculate_head_pose(
                         face_landmarks, img_w, img_h
                     )
-
                     direction_text = self.get_direction_text(x_angle, y_angle)
-
-                    # Calculate MAR and detect yawning
                     mar = self.calculate_mouth_aspect_ratio(face_landmarks, img_w, img_h)
                     is_yawning = self.process_yawn_detection(mar)
-
-                    # Create data point
                     data_point = {
                         "timestamp": timestamp_ms,
                         "x_angle": float(x_angle),
@@ -201,16 +165,11 @@ class BehaviouralDetectorAsync:
                         "mar": float(mar),
                         "direction": direction_text
                     }
-
-                    # Add to buffer (async-safe)
                     async with self.buffer_lock:
                         self.bhv_feature_queue.append(data_point)
-
                     self.frames_processed += 1
                     return data_point
-
             return None
-
         except Exception as e:
             self.inference_failures += 1
             logger.error(f"Error processing frame: {e}")
@@ -219,35 +178,24 @@ class BehaviouralDetectorAsync:
     async def queue_frame(self):
         self.running = True
         frame_interval = 1.0 / self.fps
-
         while self.running:
             try:
                 start_time = time.time()
-
-                # ret, frame = self.cap.read()
                 loop = asyncio.get_event_loop()
                 ret, frame = await loop.run_in_executor(None, self.cap.read)
                 if not ret:
                     logger.warning("Failed to read frame")
                     await asyncio.sleep(0.1)
                     continue
-
-                # Flip frame (like your original code)
                 frame = cv2.flip(frame, 1)
-
-                # Queue for behavioral processing
-                # await self.behavioral_detector.queue_frame(frame)
                 timestamp_ms = int(time.time() * 1000)
                 await asyncio.wait_for(
                     self.frame_queue.put((frame, timestamp_ms)),
                     timeout=0.05
                 )
-
-                # Maintain FPS
                 elapsed = time.time() - start_time
                 sleep_time = max(0, frame_interval - elapsed)
                 await asyncio.sleep(sleep_time)
-
             except asyncio.CancelledError:
                 logger.info("Video read loop cancelled")
                 break
@@ -260,23 +208,16 @@ class BehaviouralDetectorAsync:
     async def processing_loop(self):
         self.running = True
         logger.info("Behavioral detector processing loop started")
-
         while self.running:
             try:
-                # Get frame from queue
                 frame, timestamp_ms = await asyncio.wait_for(
                     self.frame_queue.get(),
                     timeout=1.0
                 )
-
-                # Process frame
                 result = await self.process_frame(frame, timestamp_ms)
-
                 if result:
-                    # Store in predictions
                     async with self.predictions_lock:
                         self.predictions.append(result)
-
             except asyncio.TimeoutError:
                 continue
             except asyncio.CancelledError:
@@ -289,17 +230,13 @@ class BehaviouralDetectorAsync:
         self.running = True
         last_run_time = time.time()
         logger.info("Behavioral detector aggregation loop started")
-
         while self.running:
             try:
                 current_time = time.time()
-
                 if current_time - last_run_time >= self.behavioral_interval:
                     async with self.buffer_lock:
                         buffer_copy = list(self.bhv_feature_queue)
-
                     if len(buffer_copy) > 0:
-                        # Aggregate features
                         features = {
                             'x_mean': float(np.mean([d['x_angle'] for d in buffer_copy])),
                             'y_mean': float(np.mean([d['y_angle'] for d in buffer_copy])),
@@ -310,20 +247,14 @@ class BehaviouralDetectorAsync:
                             'total_frames': len(buffer_copy),
                             'timestamp': datetime.now().isoformat()
                         }
-
                         logger.info(f"Behavioral features aggregated: {features}")
-
-                        # Store aggregated features
                         async with self.predictions_lock:
                             self.predictions.append({
                                 'type': 'aggregated',
                                 'features': features
                             })
-
                     last_run_time = current_time
-
                 await asyncio.sleep(1)
-
             except asyncio.CancelledError:
                 logger.info("Behavioral detector aggregation loop cancelled")
                 break
@@ -357,7 +288,6 @@ class BehaviouralDetectorAsync:
         }
 
     def cleanup(self):
-        """Clean up resources."""
         self.running = False
         if self.landmarker:
             self.landmarker.close()
