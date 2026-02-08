@@ -299,7 +299,7 @@ class BehaviouralDetectorAsync:
                 logger.error(f"Error in behavioral aggregation loop: {e}")
                 await asyncio.sleep(0.1)
 
-    async def get_recent_predictions(self, n: int = 10) -> List[dict]:
+    async def get_recent_prediction(self, n: int = 1) -> List[dict]:
         """Get recent predictions."""
         async with self.predictions_lock:
             return list(self.predictions)[-n:]
