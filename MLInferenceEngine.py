@@ -1,5 +1,3 @@
-from datetime import datetime
-
 import joblib
 import asyncio
 import logging
@@ -7,6 +5,7 @@ import numpy as np
 import pandas as pd
 from collections import deque
 from typing import Optional, List
+from datetime import datetime
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -25,7 +24,7 @@ class MLInferenceEngine:
         self.model = joblib.load('random_forest_model.pkl')
         logger.info("ML model loaded (placeholder)")
 
-    async def predict(self, df: pd.DataFrame) :
+    async def predict(self, df: pd.DataFrame):
         if self.model is None:
             logger.warning("Model not loaded")
             return None
@@ -55,16 +54,6 @@ class MLInferenceEngine:
                 },
                 'timestamp': datetime.now()
             }
-
-            # async with self.lock:
-            #     for i, pred in enumerate(prediction):
-            #         self.predictions.append({
-            #             'timestamp': df.iloc[i]['timestamp'],
-            #             'prediction': pred
-            #         })
-            # logger.info(f"Generated {len(predictions)} predictions successfully")
-            # logger.info(f"{predictions}")
-            # return predictions
             return data
         except Exception as e:
             self.inference_failures += 1

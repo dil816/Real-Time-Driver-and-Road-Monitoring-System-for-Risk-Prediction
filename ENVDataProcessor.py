@@ -146,16 +146,6 @@ class ENVDataProcessor:
             return None
 
     def process_environmental_data(self, serialdata):
-        """
-        Process environmental data from serial input and return comprehensive data dictionary
-
-        Args:
-            serialdata: Dictionary containing environment and GPS data
-
-        Returns:
-            Dictionary with processed environmental data including time_risk, light_level,
-            weather, and driving_context
-        """
         data = {
             "time_risk": self.get_time_risk_factor(),
             "light_level": self.classify_light_level(

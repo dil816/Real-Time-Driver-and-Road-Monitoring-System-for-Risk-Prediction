@@ -2,7 +2,7 @@ import asyncio
 import logging
 from collections import deque
 from datetime import datetime
-from typing import Optional, Any
+from typing import Any
 
 import pandas as pd
 from pandas import DataFrame
@@ -37,10 +37,7 @@ class DataBuffer:
     async def add_env_row(self, features: dict, timestamp: datetime) -> bool:
         async with self.lock:
             will_overflow = len(self.env_buffer) >= self.max_size
-            self.env_buffer.append({
-                'timestamp': timestamp,
-                'features': features
-            })
+            self.env_buffer.append(features)
             if will_overflow:
                 self.overflow_count += 1
                 logger.warning(f"ENV buffer overflow! Dropped oldest data. Count: {self.overflow_count}")

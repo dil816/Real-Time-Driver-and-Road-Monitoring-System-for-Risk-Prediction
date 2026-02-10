@@ -4,8 +4,10 @@ import numpy as np
 from datetime import datetime
 
 from BehaviouralDetectorAsync import BehaviouralDetectorAsync
+from ConnectionManager import ConnectionManager
 from DataBuffer import DataBuffer
 from ENVDataProcessor import ENVDataProcessor
+from FuzzyProcessor import FuzzyProcessor
 from HRVDataProcessor import HRVDataProcessor
 from MLInferenceEngine import MLInferenceEngine
 from MetricsCollector import MetricsCollector
@@ -18,6 +20,8 @@ logger = logging.getLogger(__name__)
 class DataPipeline:
     def __init__(self, model_path: str, env_api_key: str = None, serial_port: str = 'COM3', window_seconds: int = 30,
                  baud_rate: int = 115200):
+        self.websocket_server = ConnectionManager()
+        self.fuzzy_processor = FuzzyProcessor()
         self.metrics = MetricsCollector()
         self.ml_engine = MLInferenceEngine()
         self.serial_reader = SerialDataReader(serial_port, baud_rate, self)
@@ -52,24 +56,53 @@ class DataPipeline:
             logger.error(f"Error processing data: {e}", exc_info=True)
             await self.metrics.record_failed()
 
+    def convert_to_serializable(self, obj):
+        if isinstance(obj, dict):
+            return {key: self.convert_to_serializable(value) for key, value in obj.items()}
+        elif isinstance(obj, list):
+            return [self.convert_to_serializable(item) for item in obj]
+        elif isinstance(obj, (np.integer, np.int64, np.int32)):
+            return int(obj)
+        elif isinstance(obj, (np.floating, np.float64, np.float32)):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        elif isinstance(obj, datetime):
+            return obj.isoformat()
+        elif hasattr(obj, '__dict__'):
+            return self.convert_to_serializable(obj.__dict__)
+        else:
+            return obj
+
     async def periodic_inference(self):
         while True:
             try:
                 if await self.buffer.should_process():
-                    df, ed = await self.buffer.get_and_clear()
-                    bd = await self.bhv_processor.get_recent_prediction()
+                    # print(datetime.now())
+                    # print("tes")
+                    df, env_data = await self.buffer.get_and_clear()
+                    # hrv_data = None
+                    # bhv_data = None
                     if df is not None and not df.empty:
                         logger.info(f"Running inference on {len(df)} samples")
-                        predictions = await self.ml_engine.predict(df)
-                        if predictions is not None:
+                        hrv_data = await self.ml_engine.predict(df)
+                        if hrv_data is not None:
                             await self.metrics.record_inference()
-                            logger.info(f"Inference complete: {len(predictions)} predictions")
-                            print(predictions)
+                            logger.info(f"Inference complete: {len(hrv_data)} predictions")
+                            bhv_data = await self.bhv_processor.get_recent_prediction()
+                            data_obj = {
+                                "environment": env_data if env_data and len(env_data) > 0 else None,
+                                "physiological": hrv_data,
+                                "behaviour": bhv_data
+                            }
+                            result = self.fuzzy_processor.process_sensor_data(data_obj)
+                            if self.websocket_server:
+                                #data = self.convert_to_serializable(result)
+                                await self.websocket_server.broadcast_json(result)
+                            print(result)
                         else:
                             logger.error("Inference returned None - predictions not stored")
-                    if ed is not None and len(ed) > 0:
-                        print(ed)
-                        print(bd)
+                    #print(datetime.now())
                 await asyncio.sleep(1)
             except asyncio.CancelledError:
                 logger.info("Periodic inference task cancelled")
@@ -89,14 +122,14 @@ class DataPipeline:
             logger.info("Serial reader started")
             if not await self.bhv_processor.connect():
                 raise RuntimeError("Failed to connect to video source")
-            self.behavioral_process_task = asyncio.create_task(
-                self.bhv_processor.processing_loop()
-            )
             self.behavioral_aggregate_task = asyncio.create_task(
                 self.bhv_processor.aggregation_loop()
             )
             self.video_read_task = asyncio.create_task(
                 self.bhv_processor.queue_frame()
+            )
+            self.behavioral_process_task = asyncio.create_task(
+                self.bhv_processor.processing_loop()
             )
             logger.info("Behavioral detector started")
             logger.info("Data pipeline started successfully")

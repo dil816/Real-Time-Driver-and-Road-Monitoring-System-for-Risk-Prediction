@@ -1,17 +1,18 @@
-import time
-#import asyncio
 import logging
-import numpy as np
-from fastapi import FastAPI
-from datetime import datetime
-from DataPipeline import DataPipeline
+import time
 from contextlib import asynccontextmanager
-from SerialDataReader import SerialDataReader
-from BehaviouralDetectorAsync import BehaviouralDetectorAsync
+from datetime import datetime
+
+import numpy as np
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+
+from ConnectionManager import ConnectionManager
+from DataPipeline import DataPipeline
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+manager = ConnectionManager()
 pipeline = DataPipeline(model_path="face_landmarker.task",
                         env_api_key="9d01f5ea97d45f73c4fc7557b27cf0cd",
                         serial_port='COM3',
@@ -19,89 +20,29 @@ pipeline = DataPipeline(model_path="face_landmarker.task",
                         baud_rate=115200)
 
 
-# serial_reader = None
-# read_task = None
-# process_task = None
-
-# behavioral_detector = None
-# behavioral_process_task = None
-# behavioral_aggregate_task = None
-# video_read_task = None
-
-
 @asynccontextmanager
 async def lifespan(app_: FastAPI):
-    """Manage application lifecycle."""
-    # global serial_reader, read_task, process_task
-    # global behavioral_detector, behavioral_process_task, behavioral_aggregate_task
-    # global video_read_task
-
     await pipeline.start()
-    # logger.info("Pipeline started")
-
-    # serial_reader = SerialDataReader('COM3', 115200, pipeline)
-    # if await serial_reader.connect():
-    #     read_task = asyncio.create_task(serial_reader.read_loop())
-    #     process_task = asyncio.create_task(serial_reader.process_loop())
-
-    # try:
-    #     model_path = "face_landmarker.task"
-    #     behavioral_detector = BehaviouralDetectorAsync(
-    #         model_path=model_path,
-    #         buffer_size=500,
-    #         behavioural_interval=30
-    #     )
-    #     if await behavioral_detector.connect():
-    #         behavioral_process_task = asyncio.create_task(behavioral_detector.processing_loop())
-    #         behavioral_aggregate_task = asyncio.create_task(behavioral_detector.aggregation_loop())
-    #         video_read_task = asyncio.create_task(behavioral_detector.queue_frame())
-    #         logger.info("Behavioral detector pipeline started successfully")
-    #     else:
-    #         logger.error("Failed to connect to video source")
-    #         behavioral_detector = None
-    # except Exception as e:
-    #     logger.error(f"Failed to start behavioral detector: {e}")
 
     yield
 
     logger.info("Starting application shutdown...")
-
-    # if serial_reader:
-    #     serial_reader.running = False
-    #     tasks_to_cancel = []
-    #     if read_task and not read_task.done():
-    #         tasks_to_cancel.append(read_task)
-    #     if process_task and not process_task.done():
-    #         tasks_to_cancel.append(process_task)
-    #     for task in tasks_to_cancel:
-    #         task.cancel()
-    #     if tasks_to_cancel:
-    #         await asyncio.gather(*tasks_to_cancel, return_exceptions=True)
-    #     await serial_reader.disconnect()
-    #     logger.info("Serial reader disconnected")
-
-    # if behavioral_detector:
-    #     logger.info("Stopping behavioral detector...")
-    #     tasks_to_cancel = []
-    #     if behavioral_process_task and not behavioral_process_task.done():
-    #         tasks_to_cancel.append(behavioral_process_task)
-    #     if behavioral_aggregate_task and not behavioral_aggregate_task.done():
-    #         tasks_to_cancel.append(behavioral_aggregate_task)
-    #     if video_read_task and not video_read_task.done():
-    #         tasks_to_cancel.append(video_read_task)
-    #     for task in tasks_to_cancel:
-    #         task.cancel()
-    #     if tasks_to_cancel:
-    #         await asyncio.gather(*tasks_to_cancel, return_exceptions=True)
-    #         logger.info(f"Cancelled {len(tasks_to_cancel)} behavioral detector tasks")
-
     await pipeline.stop()
-    # logger.info("Pipeline stopped")
     logger.info("Application shutdown complete")
 
 
 # FastAPI application
 app = FastAPI(title="Real-time Data Processing Pipeline", lifespan=lifespan)
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            await websocket.receive_text()  # keep connection alive
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
 
 
 @app.get("/")
