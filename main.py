@@ -37,12 +37,12 @@ app = FastAPI(title="Real-time Data Processing Pipeline", lifespan=lifespan)
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    await manager.connect(websocket)
+    await pipeline.websocket_server.connect(websocket)
     try:
         while True:
             await websocket.receive_text()  # keep connection alive
     except WebSocketDisconnect:
-        manager.disconnect(websocket)
+        pipeline.websocket_server.disconnect(websocket)
 
 
 @app.get("/")

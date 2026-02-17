@@ -23,7 +23,8 @@ class SerialDataReader:
         self.running = False
         self.reconnect_delay = 5
         self.read_queue = asyncio.Queue(maxsize=1000)
-        self.env_queue = asyncio.Queue(maxsize=1000)
+        # self.env_queue = asyncio.Queue(maxsize=1000)
+        self.latest_env = None
 
     async def connect(self):
         max_retries = 3
@@ -69,14 +70,15 @@ class SerialDataReader:
                         logger.warning("Read queue is full! Data may be lost.")
                         await self.pipeline.metrics.record_failed()
                 elif serialdata.get('type') == 'environmental':
-                    try:
-                        await asyncio.wait_for(
-                            self.env_queue.put(serialdata),
-                            timeout=0.1
-                        )
-                        consecutive_errors = 0
-                    except asyncio.TimeoutError:
-                        logger.warning("Env queue is full! Data may be lost.")
+                    self.latest_env = serialdata
+                    # try:
+                    #     await asyncio.wait_for(
+                    #         self.env_queue.put(serialdata),
+                    #         timeout=0.1
+                    #     )
+                    #     consecutive_errors = 0
+                    # except asyncio.TimeoutError:
+                    #     logger.warning("Env queue is full! Data may be lost.")
             except asyncio.TimeoutError:
                 continue
             except asyncio.CancelledError:
@@ -106,12 +108,13 @@ class SerialDataReader:
                     self.read_queue.get(),
                     timeout=1.0
                 )
-                env_data_array = await asyncio.wait_for(
-                    self.env_queue.get(),
-                    timeout=1.0
-                )
+                env_data = self.latest_env
+                # env_data_array = await asyncio.wait_for(
+                #     self.env_queue.get(),
+                #     timeout=1.0
+                # )
                 start_time = time.time()
-                await self.pipeline.process_data(data_array, env_data_array)
+                await self.pipeline.process_data(data_array, env_data)
                 processing_time = time.time() - start_time
                 await self.pipeline.metrics.record_processed(processing_time)
             except asyncio.TimeoutError:

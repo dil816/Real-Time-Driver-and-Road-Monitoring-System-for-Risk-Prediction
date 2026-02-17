@@ -146,13 +146,15 @@ class ENVDataProcessor:
             return None
 
     def process_environmental_data(self, serialdata):
+        if serialdata is None:
+            return None
+
         data = {
             "time_risk": self.get_time_risk_factor(),
             "light_level": self.classify_light_level(
                 serialdata['environment'].get('lux')
             ),
         }
-
         if serialdata.get('gps'):
             data['weather'] = self.get_weather(
                 serialdata['gps'].get('lat'),
@@ -163,5 +165,4 @@ class ENVDataProcessor:
                 serialdata['gps'].get('lng'),
                 serialdata['gps'].get('speed_kmh')
             )
-
         return data

@@ -207,6 +207,7 @@ class BehaviouralDetectorAsync:
         async with self.running_lock:
             self.running = True
         frame_interval = 1.0 / self.fps
+        frame_count = 0
         while True:
             async with self.running_lock:
                 if not self.running:
@@ -219,14 +220,20 @@ class BehaviouralDetectorAsync:
                     await asyncio.sleep(0.1)
                     continue
                 frame = cv2.flip(frame, 1)
-                timestamp_ms = int(time.time() * 1000)
+                timestamp_ms = int(frame_count * (1000 / self.fps))
+                frame_count += 1
                 try:
-                    await asyncio.wait_for(
-                        self.frame_queue.put((frame, timestamp_ms)),
-                        timeout=0.05
-                    )
-                except asyncio.TimeoutError:
-                    logger.warning("Frame queue full, dropping frame")
+                    self.frame_queue.put_nowait((frame, timestamp_ms))
+                except asyncio.QueueFull:
+                    pass
+                # timestamp_ms = int(time.time() * 1000)
+                # try:
+                #     await asyncio.wait_for(
+                #         self.frame_queue.put((frame, timestamp_ms)),
+                #         timeout=0.05
+                #     )
+                # except asyncio.TimeoutError:
+                #     logger.warning("Frame queue full, dropping frame")
                 elapsed = time.time() - start_time
                 sleep_time = max(0.0, frame_interval - elapsed)
                 await asyncio.sleep(sleep_time)
@@ -288,7 +295,12 @@ class BehaviouralDetectorAsync:
                             'total_frames': len(buffer_copy)
                         }
                         logger.info(f"Behavioral features aggregated: {features}")
-                        self.predictions.put_nowait(features)
+                        if self.predictions.full():
+                            try:
+                                self.predictions.get_nowait()  # evict oldest
+                            except asyncio.QueueEmpty:
+                                pass
+                        self.predictions.put_nowait(features)  # safe, we just made room
                         # await asyncio.wait_for(
                         #     self.predictions.put(features),
                         #     timeout=0.1
@@ -303,8 +315,8 @@ class BehaviouralDetectorAsync:
             except asyncio.CancelledError:
                 logger.info("Behavioral detector aggregation loop cancelled")
                 break
-            except queue.Full:
-                print("Behavioral queue full, skipping frame")
+            # except queue.Full:
+            #     print("Behavioral queue full, skipping frame")
             # except asyncio.TimeoutError:
             #     logger.warning("Predictions queue full, dropping oldest prediction")
             except Exception as e:

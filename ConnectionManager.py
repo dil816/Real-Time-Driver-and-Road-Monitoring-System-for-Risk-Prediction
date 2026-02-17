@@ -1,6 +1,8 @@
 from fastapi import WebSocket
 from typing import List
 
+from fastapi.encoders import jsonable_encoder
+
 
 class ConnectionManager:
     def __init__(self):
@@ -15,4 +17,5 @@ class ConnectionManager:
 
     async def broadcast_json(self, data: dict):
         for connection in self.active_connections:
-            await connection.send_json(data)
+            clean_json = jsonable_encoder(data)
+            await connection.send_json(clean_json)

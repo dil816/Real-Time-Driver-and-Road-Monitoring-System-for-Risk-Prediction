@@ -102,7 +102,7 @@ class DataPipeline:
                             print(result)
                         else:
                             logger.error("Inference returned None - predictions not stored")
-                    #print(datetime.now())
+                    # print(datetime.now())
                 await asyncio.sleep(1)
             except asyncio.CancelledError:
                 logger.info("Periodic inference task cancelled")
