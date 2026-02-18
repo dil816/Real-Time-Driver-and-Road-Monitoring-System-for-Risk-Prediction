@@ -32,7 +32,6 @@ class BehaviouralDetectorAsync:
         self.buffer_lock = asyncio.Lock()
         self.predictions = asyncio.LifoQueue(maxsize=10)
         self.frame_queue = asyncio.Queue(maxsize=100)
-        self.frames_processed = 0
         self.landmarker = None
         self._init_mediapipe()
 
@@ -189,7 +188,6 @@ class BehaviouralDetectorAsync:
                     }
                     async with self.buffer_lock:
                         self.bhv_feature_queue.append(data_point)
-                    self.frames_processed += 1
                     return data_point
             return None
         except Exception as e:
