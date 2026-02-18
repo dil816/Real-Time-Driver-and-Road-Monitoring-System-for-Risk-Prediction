@@ -19,7 +19,6 @@ class DataBuffer:
         self.env_buffer = deque(maxlen=max_size)
         self.lock = asyncio.Lock()
         self.window_start = datetime.now()
-        self.overflow_count = 0
 
     async def add_hrv_row(self, features: dict, timestamp: datetime) -> bool:
         async with self.lock:
@@ -29,18 +28,16 @@ class DataBuffer:
                 'features': features
             })
             if current_size >= self.max_size - 1:
-                self.overflow_count += 1
-                logger.warning(f"Buffer overflow! Dropped oldest data. Count: {self.overflow_count}")
+                logger.warning(f"HRV Buffer overflow!")
                 return False
             return True
 
-    async def add_env_row(self, features: dict, timestamp: datetime) -> bool:
+    async def add_env_data(self, features: dict, timestamp: datetime) -> bool:
         async with self.lock:
             will_overflow = len(self.env_buffer) >= self.max_size
             self.env_buffer.append(features)
             if will_overflow:
-                self.overflow_count += 1
-                logger.warning(f"ENV buffer overflow! Dropped oldest data. Count: {self.overflow_count}")
+                logger.warning(f"ENV buffer overflow!")
                 return False
             return True
 
@@ -55,7 +52,6 @@ class DataBuffer:
                 data.append(row)
             df = pd.DataFrame(data)
             ed = self.env_buffer[-1] if self.env_buffer else None
-            print(type(ed))
             logger.info(f"Created DataFrame with {len(df)} rows, clearing buffer")
             self.hrv_buffer.clear()
             self.env_buffer.clear()
@@ -64,12 +60,3 @@ class DataBuffer:
 
     async def should_process(self) -> bool:
         return (datetime.now() - self.window_start).total_seconds() >= self.window_seconds
-
-    async def get_buffer_info(self) -> dict:
-        async with self.lock:
-            return {
-                'size': len(self.hrv_buffer),
-                'max_size': self.max_size,
-                'overflow_count': self.overflow_count,
-                'utilization': len(self.hrv_buffer) / self.max_size * 100
-            }

@@ -1,11 +1,8 @@
 import asyncio
 import logging
-import queue
 import time
 from collections import deque
-from datetime import datetime
-
-from typing import Optional, Dict, List
+from typing import Optional, Dict
 
 import cv2
 import mediapipe as mp
@@ -33,12 +30,9 @@ class BehaviouralDetectorAsync:
         self.MOUTH_VERTICAL_INDICES = [(13, 14), (78, 308), (81, 311)]
         self.bhv_feature_queue = deque(maxlen=buffer_size)
         self.buffer_lock = asyncio.Lock()
-        # self.predictions = deque(maxlen=10)
-        # self.predictions_lock = asyncio.Lock()
         self.predictions = asyncio.LifoQueue(maxsize=10)
         self.frame_queue = asyncio.Queue(maxsize=100)
         self.frames_processed = 0
-        self.inference_failures = 0
         self.landmarker = None
         self._init_mediapipe()
 
@@ -199,7 +193,6 @@ class BehaviouralDetectorAsync:
                     return data_point
             return None
         except Exception as e:
-            self.inference_failures += 1
             logger.error(f"Error processing frame: {e}")
             return None
 
@@ -226,14 +219,6 @@ class BehaviouralDetectorAsync:
                     self.frame_queue.put_nowait((frame, timestamp_ms))
                 except asyncio.QueueFull:
                     pass
-                # timestamp_ms = int(time.time() * 1000)
-                # try:
-                #     await asyncio.wait_for(
-                #         self.frame_queue.put((frame, timestamp_ms)),
-                #         timeout=0.05
-                #     )
-                # except asyncio.TimeoutError:
-                #     logger.warning("Frame queue full, dropping frame")
                 elapsed = time.time() - start_time
                 sleep_time = max(0.0, frame_interval - elapsed)
                 await asyncio.sleep(sleep_time)
@@ -258,9 +243,6 @@ class BehaviouralDetectorAsync:
                     timeout=1.0
                 )
                 await self.process_frame(frame, timestamp_ms)
-                # if result:
-                #     async with self.predictions_lock:
-                #         self.predictions.append(result)
             except asyncio.TimeoutError:
                 continue
             except asyncio.CancelledError:
@@ -297,79 +279,21 @@ class BehaviouralDetectorAsync:
                         logger.info(f"Behavioral features aggregated: {features}")
                         if self.predictions.full():
                             try:
-                                self.predictions.get_nowait()  # evict oldest
+                                self.predictions.get_nowait()
                             except asyncio.QueueEmpty:
                                 pass
-                        self.predictions.put_nowait(features)  # safe, we just made room
-                        # await asyncio.wait_for(
-                        #     self.predictions.put(features),
-                        #     timeout=0.1
-                        # )
-                        # async with self.predictions_lock:
-                        #     self.predictions.append({
-                        #         'type': 'aggregated',
-                        #         'features': features
-                        #     })
+                        self.predictions.put_nowait(features)
                     last_run_time = current_time
                 await asyncio.sleep(1)
             except asyncio.CancelledError:
                 logger.info("Behavioral detector aggregation loop cancelled")
                 break
-            # except queue.Full:
-            #     print("Behavioral queue full, skipping frame")
-            # except asyncio.TimeoutError:
-            #     logger.warning("Predictions queue full, dropping oldest prediction")
             except Exception as e:
                 logger.error(f"Error in behavioral aggregation loop: {e}")
                 await asyncio.sleep(0.1)
 
     async def get_recent_prediction(self) -> Optional[dict]:
-        """Get the latest prediction."""
         try:
             return self.predictions.get_nowait()
         except asyncio.QueueEmpty:
             return None
-
-
-# async def get_recent_prediction(self, n: int = 1) -> List[dict]:
-#     """Get recent predictions."""
-#     async with self.predictions_lock:
-#         return list(self.predictions)[-n:]
-
-# async def get_recent_prediction(self) -> Optional[dict]:
-#     """Get the most recent prediction."""
-#     async with self.predictions_lock:
-#         return self.predictions[-1] if self.predictions else None
-
-# async def get_recent_aggregated(self, n: int = 5) -> List[dict]:
-#     """Get recent aggregated features only."""
-#     async with self.predictions_lock:
-#         aggregated = [p for p in self.predictions if p.get('type') == 'aggregated']
-#         return aggregated[-n:]
-
-async def get_stats(self) -> dict:
-    """Get processing statistics."""
-    async with self.buffer_lock:
-        buffer_size = len(self.bhv_feature_queue)
-
-    return {
-        'frames_processed': self.frames_processed,
-        'inference_failures': self.inference_failures,
-        'queue_size': self.frame_queue.qsize(),
-        'buffer_size': buffer_size,
-        'buffer_capacity': self.buffer_size,
-        'total_yawns': self.total_yawns,
-        'current_yawning': self.yawning
-    }
-
-
-async def cleanup(self):
-    async with self.running_lock:
-        self.running = False
-    await asyncio.sleep(0.5)
-    if self.landmarker:
-        self.landmarker.close()
-        self.landmarker = None
-    if self.cap:
-        self.cap.release()
-    logger.info("Behavioral detector cleaned up")

@@ -1,7 +1,6 @@
 import asyncio
 import json
 import logging
-import time
 from typing import Type
 
 import numpy as np
@@ -59,7 +58,6 @@ class SerialDataReader:
                 if serialdata.get('type') == 'hrv_data':
                     data_array = np.array(serialdata['ibi'])
                     print("ibi")
-                    await self.pipeline.metrics.record_received()
                     try:
                         await asyncio.wait_for(
                             self.read_queue.put(data_array),
@@ -68,7 +66,6 @@ class SerialDataReader:
                         consecutive_errors = 0
                     except asyncio.TimeoutError:
                         logger.warning("Read queue is full! Data may be lost.")
-                        await self.pipeline.metrics.record_failed()
                 elif serialdata.get('type') == 'environmental':
                     self.latest_env = serialdata
                     # try:
@@ -89,7 +86,6 @@ class SerialDataReader:
             except Exception as e:
                 consecutive_errors += 1
                 logger.error(f"Error reading serial data (error {consecutive_errors}): {e}")
-                await self.pipeline.metrics.record_failed()
                 if consecutive_errors >= max_consecutive_errors:
                     logger.error("Too many consecutive errors, attempting reconnection...")
                     await self.disconnect()
@@ -113,10 +109,7 @@ class SerialDataReader:
                 #     self.env_queue.get(),
                 #     timeout=1.0
                 # )
-                start_time = time.time()
                 await self.pipeline.process_data(data_array, env_data)
-                processing_time = time.time() - start_time
-                await self.pipeline.metrics.record_processed(processing_time)
             except asyncio.TimeoutError:
                 continue
             except asyncio.CancelledError:
@@ -124,7 +117,6 @@ class SerialDataReader:
                 break
             except Exception as e:
                 logger.error(f"Error processing serial data: {e}")
-                await self.pipeline.metrics.record_failed()
 
     async def disconnect(self):
         if self.writer:

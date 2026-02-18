@@ -1,11 +1,12 @@
-import joblib
 import asyncio
 import logging
+from collections import deque
+from datetime import datetime
+from typing import Optional
+
+import joblib
 import numpy as np
 import pandas as pd
-from collections import deque
-from typing import Optional, List
-from datetime import datetime
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -59,7 +60,3 @@ class MLInferenceEngine:
             self.inference_failures += 1
             logger.error(f"Inference failed (count: {self.inference_failures}): {e}")
             return None
-
-    async def get_recent_predictions(self, n: int = 10) -> List[dict]:
-        async with self.lock:
-            return list(self.predictions)[-n:]

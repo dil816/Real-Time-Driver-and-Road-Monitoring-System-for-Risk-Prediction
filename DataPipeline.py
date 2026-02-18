@@ -1,7 +1,8 @@
 import asyncio
 import logging
-import numpy as np
 from datetime import datetime
+
+import numpy as np
 
 from BehaviouralDetectorAsync import BehaviouralDetectorAsync
 from ConnectionManager import ConnectionManager
@@ -10,7 +11,6 @@ from ENVDataProcessor import ENVDataProcessor
 from FuzzyProcessor import FuzzyProcessor
 from HRVDataProcessor import HRVDataProcessor
 from MLInferenceEngine import MLInferenceEngine
-from MetricsCollector import MetricsCollector
 from SerialDataReader import SerialDataReader
 
 logging.basicConfig(level=logging.INFO)
@@ -22,7 +22,6 @@ class DataPipeline:
                  baud_rate: int = 115200):
         self.websocket_server = ConnectionManager()
         self.fuzzy_processor = FuzzyProcessor()
-        self.metrics = MetricsCollector()
         self.ml_engine = MLInferenceEngine()
         self.serial_reader = SerialDataReader(serial_port, baud_rate, self)
         self.hrv_processor = HRVDataProcessor()
@@ -43,18 +42,22 @@ class DataPipeline:
             if len(data_array) == 0:
                 logger.warning("Received empty data array, skipping")
                 return
-            env_features = self.env_processor.process_environmental_data(env_data)
-            hrv_features = self.hrv_processor.extract_features(data_array)
-            await self.metrics.record_feature_extracted()
+            env_features = await asyncio.to_thread(
+                self.env_processor.process_environmental_data,
+                env_data
+            )
+            hrv_features = await asyncio.to_thread(
+                self.hrv_processor.extract_features,
+                data_array
+            )
             timestamp = datetime.now()
-            success_env = await self.buffer.add_env_row(env_features, timestamp)
+            success_env = await self.buffer.add_env_data(env_features, timestamp)
             success_hrv = await self.buffer.add_hrv_row(hrv_features, timestamp)
             if not success_env or not success_hrv:
                 logger.warning("Buffer overflow occurred during add_row")
             logger.debug(f"Processed array of {len(data_array)} elements")
         except Exception as e:
             logger.error(f"Error processing data: {e}", exc_info=True)
-            await self.metrics.record_failed()
 
     def convert_to_serializable(self, obj):
         if isinstance(obj, dict):
@@ -78,16 +81,11 @@ class DataPipeline:
         while True:
             try:
                 if await self.buffer.should_process():
-                    # print(datetime.now())
-                    # print("tes")
                     df, env_data = await self.buffer.get_and_clear()
-                    # hrv_data = None
-                    # bhv_data = None
                     if df is not None and not df.empty:
                         logger.info(f"Running inference on {len(df)} samples")
                         hrv_data = await self.ml_engine.predict(df)
                         if hrv_data is not None:
-                            await self.metrics.record_inference()
                             logger.info(f"Inference complete: {len(hrv_data)} predictions")
                             bhv_data = await self.bhv_processor.get_recent_prediction()
                             data_obj = {
@@ -97,12 +95,11 @@ class DataPipeline:
                             }
                             result = self.fuzzy_processor.process_sensor_data(data_obj)
                             if self.websocket_server:
-                                #data = self.convert_to_serializable(result)
+                                # data = self.convert_to_serializable(result)
                                 await self.websocket_server.broadcast_json(result)
                             print(result)
                         else:
                             logger.error("Inference returned None - predictions not stored")
-                    # print(datetime.now())
                 await asyncio.sleep(1)
             except asyncio.CancelledError:
                 logger.info("Periodic inference task cancelled")
