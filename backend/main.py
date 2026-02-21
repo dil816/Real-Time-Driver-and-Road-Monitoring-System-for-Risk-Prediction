@@ -3,8 +3,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
-from ConnectionManager import ConnectionManager
-from DataPipeline import DataPipeline
+from backend.ConnectionManager import ConnectionManager
+from backend.DataPipeline import DataPipeline
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

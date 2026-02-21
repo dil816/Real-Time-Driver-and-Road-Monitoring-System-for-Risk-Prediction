@@ -6,7 +6,7 @@ from typing import Type
 import numpy as np
 import serial_asyncio
 
-import DataPipeline
+from backend import DataPipeline
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
