@@ -4,9 +4,9 @@ from datetime import datetime
 
 import numpy as np
 
-from backend.BehaviouralDetectorAsync import BehaviouralDetectorAsync
-from backend.ConnectionManager import ConnectionManager
-from backend.DataBuffer import DataBuffer
+from BehaviouralDetectorAsync import BehaviouralDetectorAsync
+from ConnectionManager import ConnectionManager
+from DataBuffer import DataBuffer
 from ENVDataProcessor import ENVDataProcessor
 from FuzzyProcessor import FuzzyProcessor
 from HRVDataProcessor import HRVDataProcessor
