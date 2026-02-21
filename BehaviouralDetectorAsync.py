@@ -241,6 +241,10 @@ class BehaviouralDetectorAsync:
                     timeout=1.0
                 )
                 await self.process_frame(frame, timestamp_ms)
+                # data_point = await asyncio.to_thread(self.process_frame_sync, frame, timestamp_ms)
+                # if data_point:
+                #     async with self.buffer_lock:
+                #         self.bhv_feature_queue.append(data_point)
             except asyncio.TimeoutError:
                 continue
             except asyncio.CancelledError:

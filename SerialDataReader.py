@@ -22,7 +22,6 @@ class SerialDataReader:
         self.running = False
         self.reconnect_delay = 5
         self.read_queue = asyncio.Queue(maxsize=1000)
-        # self.env_queue = asyncio.Queue(maxsize=1000)
         self.latest_env = None
 
     async def connect(self):
@@ -56,26 +55,14 @@ class SerialDataReader:
                 data_str = line.decode('utf-8', errors='ignore').strip()
                 serialdata = json.loads(data_str)
                 if serialdata.get('type') == 'hrv_data':
-                    data_array = np.array(serialdata['ibi'])
-                    print("ibi")
                     try:
-                        await asyncio.wait_for(
-                            self.read_queue.put(data_array),
-                            timeout=0.1
-                        )
+                        self.read_queue.put_nowait(np.array(serialdata['ibi']))
                         consecutive_errors = 0
-                    except asyncio.TimeoutError:
-                        logger.warning("Read queue is full! Data may be lost.")
+                    except asyncio.QueueFull:
+                        logger.warning("Queue full - dropping packet")
+                    print("ibi")
                 elif serialdata.get('type') == 'environmental':
                     self.latest_env = serialdata
-                    # try:
-                    #     await asyncio.wait_for(
-                    #         self.env_queue.put(serialdata),
-                    #         timeout=0.1
-                    #     )
-                    #     consecutive_errors = 0
-                    # except asyncio.TimeoutError:
-                    #     logger.warning("Env queue is full! Data may be lost.")
             except asyncio.TimeoutError:
                 continue
             except asyncio.CancelledError:
@@ -105,10 +92,6 @@ class SerialDataReader:
                     timeout=1.0
                 )
                 env_data = self.latest_env
-                # env_data_array = await asyncio.wait_for(
-                #     self.env_queue.get(),
-                #     timeout=1.0
-                # )
                 await self.pipeline.process_data(data_array, env_data)
             except asyncio.TimeoutError:
                 continue
