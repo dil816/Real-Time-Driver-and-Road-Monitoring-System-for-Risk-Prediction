@@ -1,5 +1,3 @@
-// lib/models/fatigue_data.dart
-
 class FatigueData {
   final double fatigueScore;
   final String trend;

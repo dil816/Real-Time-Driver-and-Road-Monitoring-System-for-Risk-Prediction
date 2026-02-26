@@ -1,5 +1,3 @@
-// lib/screens/fatigue_analyze_screen.dart
-
 import 'package:driveguard/models/fatigue_data.dart';
 import 'package:driveguard/provider/websocket_service_provider/websocket_service.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -10,11 +8,6 @@ import '../../../theme.dart';
 import '../../../widgets/component_score_card.dart';
 import '../../../widgets/dashboard_card.dart';
 
-// ─────────────────────────────────────────────
-// ROOT SCREEN
-// FIX: No longer wraps everything in one Consumer.
-// Each section subscribes only to the notifier it needs.
-// ─────────────────────────────────────────────
 class FatigueAnalyzeScreen extends StatefulWidget {
   const FatigueAnalyzeScreen({super.key});
 
@@ -34,7 +27,6 @@ class _FatigueAnalyzeScreenState extends State<FatigueAnalyzeScreen> {
 
   @override
   void dispose() {
-    // FIX: explicitly dispose service from screen side
     // TODO: Can uncommented future if want
     //_service.dispose();
     super.dispose();
@@ -42,9 +34,6 @@ class _FatigueAnalyzeScreenState extends State<FatigueAnalyzeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // FIX: Only the loading/ready gate listens here.
-    // Once data arrives this ValueListenableBuilder never rebuilds again
-    // (the inner widgets each have their own targeted listeners).
     return ValueListenableBuilder<FatigueData?>(
       valueListenable: _service.dataNotifier,
       builder: (context, data, _) {
@@ -55,10 +44,6 @@ class _FatigueAnalyzeScreenState extends State<FatigueAnalyzeScreen> {
   }
 }
 
-// ─────────────────────────────────────────────
-// LOADING SCREEN
-// FIX: Extracted to a const widget — never rebuilt unnecessarily.
-// ─────────────────────────────────────────────
 class _LoadingScreen extends StatelessWidget {
   const _LoadingScreen();
 
@@ -83,11 +68,6 @@ class _LoadingScreen extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────
-// DASHBOARD BODY
-// FIX: Extracted to its own StatelessWidget. The scroll view and static
-// layout never rebuild — only child widgets rebuild when their data changes.
-// ─────────────────────────────────────────────
 class _DashboardBody extends StatelessWidget {
   final WebSocketService service;
 
@@ -98,25 +78,19 @@ class _DashboardBody extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SingleChildScrollView(
-        // bottom padding accounts for the floating nav bar height (56) +
-        // its bottom margin (12) + safe area — prevents last card from
-        // being clipped behind the nav bar and causing MetricTile overflow
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 40),
-            // FIX: _HeaderWidget only listens to connectionNotifier
             _HeaderWidget(notifier: service.connectionNotifier),
             const SizedBox(height: 20),
-            // FIX: _AlertBanner only listens to dataNotifier
             _AlertBanner(notifier: service.dataNotifier),
             const SizedBox(height: 20),
             _ResponsiveRow(
               children: [
                 Expanded(
                   flex: 2,
-                  // FIX: _ComponentAnalysisCard listens to data + history separately
                   child: _ComponentAnalysisCard(
                     dataNotifier: service.dataNotifier,
                     historyNotifier: service.historyNotifier,
@@ -149,11 +123,6 @@ class _DashboardBody extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────
-// RESPONSIVE ROW HELPER
-// FIX: Uses LayoutBuilder instead of MediaQuery in build() —
-// only re-lays out when its own constraints change, not on every rebuild.
-// ─────────────────────────────────────────────
 class _ResponsiveRow extends StatelessWidget {
   final List<Widget> children;
 
@@ -183,11 +152,6 @@ class _ResponsiveRow extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────
-// HEADER
-// FIX: Only listens to connectionNotifier (bool).
-// Does NOT rebuild when fatigue score or components change.
-// ─────────────────────────────────────────────
 class _HeaderWidget extends StatelessWidget {
   final ValueNotifier<bool> notifier;
 
@@ -239,7 +203,6 @@ class _HeaderWidget extends StatelessWidget {
                 ],
               ),
             ),
-            // FIX: This is truly static — extracted as a const-like container
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
@@ -275,11 +238,6 @@ class _HeaderWidget extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────
-// ALERT BANNER
-// FIX: Listens to dataNotifier. Rebuilds only when new data arrives.
-// FIX: Cached alert color constants used from AppColors (no map lookup inline).
-// ─────────────────────────────────────────────
 class _AlertBanner extends StatelessWidget {
   final ValueNotifier<FatigueData?> notifier;
 
@@ -405,12 +363,6 @@ class _AlertBanner extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────
-// COMPONENT ANALYSIS CARD
-// FIX: dataNotifier and historyNotifier are listened to separately.
-// The score cards only rebuild when data changes.
-// The chart only rebuilds when history changes.
-// ─────────────────────────────────────────────
 class _ComponentAnalysisCard extends StatelessWidget {
   final ValueNotifier<FatigueData?> dataNotifier;
   final HistoryNotifier historyNotifier;
@@ -441,7 +393,6 @@ class _ComponentAnalysisCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-          // FIX: Score section rebuilds on data change
           ValueListenableBuilder<FatigueData?>(
             valueListenable: dataNotifier,
             builder: (context, data, _) {
@@ -500,7 +451,6 @@ class _ComponentAnalysisCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          // FIX: Chart section ONLY rebuilds when history changes, not on every data update
           SizedBox(
             height: 200,
             child: ValueListenableBuilder<List<HistoryPoint>>(
@@ -524,11 +474,6 @@ class _ComponentAnalysisCard extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────
-// LINE CHART
-// FIX: Extracted as its own widget. The chart data is computed once
-// inside build() and not recreated by a parent's rebuild.
-// ─────────────────────────────────────────────
 class _LineChart extends StatelessWidget {
   final List<HistoryPoint> history;
 
@@ -549,7 +494,6 @@ class _LineChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // FIX: Build spot lists once here, not recreated on each parent rebuild
     final scoreSpots = [
       for (int i = 0; i < history.length; i++) history[i].score,
     ];
@@ -630,11 +574,6 @@ class _LineChart extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────
-// ADAPTIVE WEIGHTS CARD
-// FIX: Own ValueListenableBuilder — only rebuilds for data changes.
-// FIX: Radar chart extracted to its own widget.
-// ─────────────────────────────────────────────
 class _AdaptiveWeightsCard extends StatelessWidget {
   final ValueNotifier<FatigueData?> notifier;
 
@@ -698,11 +637,6 @@ class _AdaptiveWeightsCard extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────
-// RADAR CHART
-// FIX: Extracted as its own widget so Flutter can skip rebuilding it
-// if the parent rebuilds but data reference hasn't changed.
-// ─────────────────────────────────────────────
 class _RadarChart extends StatelessWidget {
   final FatigueData data;
 
@@ -749,11 +683,6 @@ class _RadarChart extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────
-// ENVIRONMENTAL CARD
-// FIX: Own ValueListenableBuilder.
-// FIX: GridView replaced with Wrap — no shrinkWrap needed, lazy-safe.
-// ─────────────────────────────────────────────
 class _EnvironmentalCard extends StatelessWidget {
   final ValueNotifier<FatigueData?> notifier;
 
@@ -785,8 +714,6 @@ class _EnvironmentalCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 16),
-              // FIX: Use GridView.builder instead of GridView.count —
-              // builder is lazy, count renders all children immediately.
               GridView.builder(
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
@@ -798,7 +725,6 @@ class _EnvironmentalCard extends StatelessWidget {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemBuilder: (context, i) {
-                  // FIX: data prepared once, not inline per build
                   final tiles = [
                     (
                       Icons.wb_sunny_outlined,
@@ -846,11 +772,6 @@ class _EnvironmentalCard extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────
-// BIOMETRIC CARD
-// FIX: Own ValueListenableBuilder.
-// FIX: Behavioral GridView replaced with GridView.builder.
-// ─────────────────────────────────────────────
 class _BiometricCard extends StatelessWidget {
   final ValueNotifier<FatigueData?> notifier;
 
@@ -895,7 +816,6 @@ class _BiometricCard extends StatelessWidget {
   }
 }
 
-// FIX: HRV and Behavioral panels extracted — smaller, focused widgets.
 class _HrvPanel extends StatelessWidget {
   final PhysiologicalData phys;
 
@@ -1001,7 +921,6 @@ class _BehavioralPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // FIX: data built once as a list, not inline per cell
     final cells = [
       ('MAR Score', '${(behav.marScore * 100).toStringAsFixed(0)}%'),
       ('Yawn Count', '${behav.yawnCount}'),
@@ -1061,12 +980,6 @@ class _BehavioralPanel extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────
-// FUZZY MEMBERSHIP CARD
-// FIX: Own ValueListenableBuilder.
-// FIX: Bar groups built once in build(), not inside chart callback.
-// FIX: Legend extracted as const widgets.
-// ─────────────────────────────────────────────
 class _FuzzyMembershipCard extends StatelessWidget {
   final ValueNotifier<FatigueData?> notifier;
 
@@ -1111,7 +1024,6 @@ class _FuzzyMembershipCard extends StatelessWidget {
   }
 }
 
-// FIX: const widget — never rebuilds
 class _LegendDot extends StatelessWidget {
   final String label;
   final Color color;
@@ -1137,17 +1049,11 @@ class _LegendDot extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────
-// FUZZY BAR CHART
-// FIX: Extracted widget. Bar groups built once in build().
-// The static bar border radius is a const to avoid recreation.
-// ─────────────────────────────────────────────
 class _FuzzyBarChart extends StatelessWidget {
   final FatigueData data;
 
   const _FuzzyBarChart({required this.data});
 
-  // FIX: const border radius — allocated once, not per rod per rebuild
   static const _topRadius = BorderRadius.vertical(top: Radius.circular(4));
 
   @override
@@ -1159,7 +1065,6 @@ class _FuzzyBarChart extends StatelessWidget {
       data.components.behavioral.fuzzy,
     ];
 
-    // FIX: barGroups computed once here, not inside a chart callback
     final barGroups = [
       for (int i = 0; i < 3; i++)
         BarChartGroupData(

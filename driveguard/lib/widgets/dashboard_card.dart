@@ -1,5 +1,3 @@
-// lib/widgets/dashboard_card.dart
-
 import 'package:flutter/material.dart';
 
 import '../theme.dart';
@@ -48,7 +46,6 @@ class MetricTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      // FIX: reduced padding so content fits inside GridView cell
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: AppColors.surfaceVariant.withValues(alpha: 0.5),

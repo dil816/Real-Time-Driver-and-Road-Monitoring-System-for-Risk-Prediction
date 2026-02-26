@@ -1,11 +1,8 @@
-// lib/widgets/component_score_card.dart
-
 import 'package:flutter/material.dart';
 
 import '../models/fatigue_data.dart';
 import '../theme.dart';
 import 'dashboard_card.dart';
-
 
 class ComponentScoreCard extends StatelessWidget {
   final String label;
