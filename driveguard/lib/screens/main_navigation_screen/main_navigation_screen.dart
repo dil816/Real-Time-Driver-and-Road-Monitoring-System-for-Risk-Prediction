@@ -1,4 +1,5 @@
 import 'package:driveguard/screens/bottom_navbar_pages/driver_monitor/driver_monitor_screen.dart';
+import 'package:driveguard/screens/bottom_navbar_pages/fatigue_detection/fatigue_analyze_screen.dart';
 import 'package:flutter/material.dart';
 
 import '../bottom_navbar_pages/dashboard/dahsboard_page.dart';
@@ -13,7 +14,11 @@ class MainNavigationScreen extends StatefulWidget {
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _index = 0;
 
-  final pages = <Widget>[DahsboardPage(), DriverMonitorScreen()];
+  final pages = <Widget>[
+    DahsboardPage(),
+    DriverMonitorScreen(),
+    FatigueAnalyzeScreen(),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -33,6 +38,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.monitor_heart_rounded),
+            label: '',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.settings_rounded),
             label: '',
           ),
         ],
