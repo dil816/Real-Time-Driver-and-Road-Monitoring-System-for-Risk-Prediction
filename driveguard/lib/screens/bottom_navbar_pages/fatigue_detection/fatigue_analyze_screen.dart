@@ -35,6 +35,7 @@ class _FatigueAnalyzeScreenState extends State<FatigueAnalyzeScreen> {
   @override
   void dispose() {
     // FIX: explicitly dispose service from screen side
+    // TODO: Can uncommented future if want
     //_service.dispose();
     super.dispose();
   }

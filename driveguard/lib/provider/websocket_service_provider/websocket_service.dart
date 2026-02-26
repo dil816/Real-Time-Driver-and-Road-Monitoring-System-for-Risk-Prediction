@@ -114,6 +114,7 @@ class WebSocketService {
   void dispose() {
     _reconnectTimer?.cancel();
     _channel?.sink.close();
+    // TODO: should be removed in follow 3
     connectionNotifier.dispose();
     dataNotifier.dispose();
     historyNotifier.dispose();
