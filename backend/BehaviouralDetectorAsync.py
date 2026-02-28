@@ -2,6 +2,7 @@ import asyncio
 import logging
 import time
 from collections import deque
+from datetime import datetime
 from typing import Optional, Dict
 
 import cv2
@@ -162,7 +163,7 @@ class BehaviouralDetectorAsync:
             self.yawning = False
         return self.yawning
 
-    async def process_frame(self, frame: np.ndarray, timestamp_ms: int) -> Optional[Dict]:
+    def process_frame_sync(self, frame: np.ndarray, timestamp_ms: int) -> Optional[Dict]:
         try:
             img_h, img_w, _ = frame.shape
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -186,8 +187,8 @@ class BehaviouralDetectorAsync:
                         "mar": float(mar),
                         "direction": direction_text
                     }
-                    async with self.buffer_lock:
-                        self.bhv_feature_queue.append(data_point)
+                    # async with self.buffer_lock:
+                    #     self.bhv_feature_queue.append(data_point)
                     return data_point
             return None
         except Exception as e:
@@ -240,11 +241,11 @@ class BehaviouralDetectorAsync:
                     self.frame_queue.get(),
                     timeout=1.0
                 )
-                await self.process_frame(frame, timestamp_ms)
-                # data_point = await asyncio.to_thread(self.process_frame_sync, frame, timestamp_ms)
-                # if data_point:
-                #     async with self.buffer_lock:
-                #         self.bhv_feature_queue.append(data_point)
+                # await self.process_frame(frame, timestamp_ms)
+                data_point = await asyncio.to_thread(self.process_frame_sync, frame, timestamp_ms)
+                if data_point:
+                    async with self.buffer_lock:
+                        self.bhv_feature_queue.append(data_point)
             except asyncio.TimeoutError:
                 continue
             except asyncio.CancelledError:
