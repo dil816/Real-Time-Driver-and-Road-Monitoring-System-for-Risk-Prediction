@@ -4,7 +4,7 @@ from datetime import datetime
 
 import numpy as np
 
-from BehaviouralDetectorAsync import BehaviouralDetectorAsync
+from BehaviouralDetectorSync import BehaviouralDetectorAsync
 from ConnectionManager import ConnectionManager
 from DataBuffer import DataBuffer
 from ENVDataProcessor import ENVDataProcessor
