@@ -278,7 +278,7 @@ class BehaviouralDetectorAsync:
                             'yawn_frequency': float(np.sum([d['yawning'] for d in buffer_copy]) / len(buffer_copy)),
                             'total_frames': len(buffer_copy)
                         }
-                        logger.info(f"Behavioral features aggregated: {features}")
+                        logger.info(f"{datetime.now()} aggregated: {features}")
                         if self.predictions.full():
                             try:
                                 self.predictions.get_nowait()
