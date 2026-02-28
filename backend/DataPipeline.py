@@ -93,7 +93,8 @@ class DataPipeline:
                                 "physiological": hrv_data,
                                 "behaviour": bhv_data
                             }
-                            result = self.fuzzy_processor.process_sensor_data(data_obj)
+                            # result = self.fuzzy_processor.process_sensor_data(data_obj)
+                            result = await asyncio.to_thread(self.fuzzy_processor.process_sensor_data, data_obj)
                             if self.websocket_server:
                                 # data = self.convert_to_serializable(result)
                                 await self.websocket_server.broadcast_json(result)
