@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from datetime import datetime
+from queue import Empty
 
 import numpy as np
 
@@ -109,6 +110,8 @@ class DataPipeline:
             except asyncio.CancelledError:
                 logger.info("Periodic inference task cancelled")
                 break
+            except Empty:
+                logger.error("periodic inference any queue empty")
             except Exception as e:
                 logger.error(f"Error in periodic inference: {e}", exc_info=True)
 
