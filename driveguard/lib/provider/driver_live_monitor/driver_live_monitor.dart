@@ -15,6 +15,7 @@ class DriverLiveMonitor extends ChangeNotifier {
     checkDriverAlert();
   }
 
+
   void checkDriverAlert() {
     if (bloodPreasure < 50 || bloodPreasure > 120 || bloodOxygenLevel < 90) {
       isDriverAlert = true;
