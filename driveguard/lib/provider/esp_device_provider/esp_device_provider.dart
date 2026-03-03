@@ -46,9 +46,11 @@ class EspDeviceProvider extends ChangeNotifier {
       FlutterBluePlus.scanResults.listen((results) {
         for (ScanResult r in results) {
           if (r.device.platformName == "ESP32-CAM-IMAGE") {
+
             FlutterBluePlus.stopScan();
             connect(r.device);
             break;
+
           }
         }
       });
