@@ -44,7 +44,6 @@ async def websocket_endpoint(websocket: WebSocket):
 
 @app.get("/status")
 async def root():
-    """Health check endpoint."""
     return {"status": "running", "message": "Data processing pipeline is active"}
 
 
