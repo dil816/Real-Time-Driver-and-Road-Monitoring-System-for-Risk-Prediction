@@ -8,6 +8,7 @@ from datetime import datetime
 import cv2
 import mediapipe as mp
 import numpy as np
+import tensorflow as tf
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -17,11 +18,15 @@ class BehaviouralDetectorSync:
     def __init__(self, model_path, buffer_size=500, behavioural_interval=30):
         self.model_path = model_path
         self.buffer_size = buffer_size
+        self.CLASS_NAMES = ["Drowsy", "Not Drowsy"]
+        self.face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
         self.stop_event = threading.Event()
         self.buffer_lock = threading.Lock()
         self.behavioral_interval = behavioural_interval
         self.bhv_feature_queue = deque(maxlen=buffer_size)
+        self.drowsiness_feature_queue = deque(maxlen=30)
         self.behavioral_queue = queue.LifoQueue(maxsize=10)
+        self.drowsiness_queue = queue.LifoQueue(maxsize=10)
         self.yawning = False
         self.total_yawns = 0
         self.yawn_counter = 0
@@ -29,6 +34,9 @@ class BehaviouralDetectorSync:
         self.YAWN_MAR_THRESHOLD = 0.65
         self.MOUTH_VERTICAL_INDICES = [(13, 14), (78, 308), (81, 311)]
         self.landmarker = None
+        self.interpreter = None
+        self.input_details = None
+        self.output_details = None
         self._init_mediapipe()
 
     def _init_mediapipe(self):
@@ -37,6 +45,13 @@ class BehaviouralDetectorSync:
                 self.landmarker.close()
             except Exception as e:
                 logger.warning(f"Closing existing landmarker: {e}")
+
+        self.interpreter = tf.lite.Interpreter(model_path="drowsiness_model.tflite")
+        self.interpreter.allocate_tensors()
+        self.input_details = self.interpreter.get_input_details()
+        self.output_details = self.interpreter.get_output_details()
+        logger.info(f"TFLite loaded")
+
         base_options = mp.tasks.BaseOptions
         face_landmarker = mp.tasks.vision.FaceLandmarker
         face_landmarker_options = mp.tasks.vision.FaceLandmarkerOptions
@@ -49,6 +64,7 @@ class BehaviouralDetectorSync:
             num_faces=1
         )
         self.landmarker = face_landmarker.create_from_options(self.options)
+        logger.info(f"mediapipe loaded")
 
     def calculate_mouth_aspect_ratio(self, face_landmarks, img_w, img_h):
         if not face_landmarks or len(face_landmarks) < 312:
@@ -126,6 +142,91 @@ class BehaviouralDetectorSync:
             self.yawning = False
         return self.yawning
 
+    def drowsiness_frame_preprocess(self, frame_bgr: np.ndarray):
+        gray = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
+        faces = self.face_cascade.detectMultiScale(gray, scaleFactor=1.2, minNeighbors=6, minSize=(100, 100))
+        if len(faces) == 0:
+            return None
+        x, y, w, h = faces[0]
+        face_bgr = frame_bgr[y:y + h, x:x + w]
+        face_rgb = cv2.cvtColor(face_bgr, cv2.COLOR_BGR2RGB)
+        face_resized = cv2.resize(face_rgb, (224, 224), interpolation=cv2.INTER_LINEAR)
+        img = face_resized.astype("float32") / 255.0
+        img = np.expand_dims(img, axis=0)
+        return img
+
+    def drowsiness_aggregation_loop(self):
+        aggregated_predicts = []
+        start_time = time.time()
+        while not self.stop_event.is_set():
+            try:
+                if not self.drowsiness_feature_queue:
+                    time.sleep(0.05)
+                    continue
+                image_frame = self.drowsiness_feature_queue.pop()
+                self.interpreter.set_tensor(self.input_details[0]["index"], image_frame)
+                self.interpreter.invoke()
+                predicts = self.interpreter.get_tensor(self.output_details[0]["index"])
+                aggregated_predicts.append(predicts)
+                if time.time() - start_time >= 4:
+                    if len(aggregated_predicts) > 0:
+                        agg_preds_np = np.vstack(aggregated_predicts)
+                        if agg_preds_np.shape[1] == 1:
+                            avg_conf = float(np.mean(agg_preds_np))
+                            is_drowsy = avg_conf > 0.5
+                            label = self.CLASS_NAMES[0] if is_drowsy else self.CLASS_NAMES[1]
+                            confidence = avg_conf * 100 if is_drowsy else (1 - avg_conf) * 100
+                        else:
+                            avg_preds = np.mean(agg_preds_np, axis=0)
+                            idx = int(np.argmax(avg_preds))
+                            label = self.CLASS_NAMES[idx]
+                            confidence = float(avg_preds[idx]) * 100
+                            is_drowsy = idx == 0
+                        feature = {
+                            "label": label,
+                            "confidence": confidence,
+                        }
+                        if self.drowsiness_queue.full():
+                            try:
+                                self.drowsiness_queue.get_nowait()
+                            except queue.Empty:
+                                pass
+                        self.drowsiness_queue.put_nowait(feature)
+                        logger.info(f"[4s Aggregated] Label: {label}, Confidence: {confidence:.2f}%")
+                    else:
+                        logger.warning("[4s Aggregated] No predictions collected in this window.")
+                    aggregated_predicts = []
+                    start_time = time.time()
+            except IndexError:
+                time.sleep(0.05)
+            except Exception as e:
+                logger.error(f"Error in aggregation loop: {e}", exc_info=True)
+                time.sleep(0.1)
+
+    # def drowsiness_aggregation_loop1(self):
+    #     while not self.stop_event.is_set():
+    #         try:
+    #             img = self.drowsiness_feature_queue.pop()
+    #             self.interpreter.set_tensor(self.input_details[0]["index"], img)
+    #             self.interpreter.invoke()
+    #             preds = self.interpreter.get_tensor(self.output_details[0]["index"])
+    #
+    #             if preds.shape[1] == 1:
+    #                 conf = float(preds[0][0])
+    #                 is_drowsy = conf > 0.5
+    #                 label = self.CLASS_NAMES[0] if is_drowsy else self.CLASS_NAMES[1]
+    #                 confidence = conf * 100 if is_drowsy else (1 - conf) * 100
+    #                 # print(f"lable: {label} confidence: {confidence}")
+    #             else:
+    #                 idx = int(np.argmax(preds))
+    #                 label = self.CLASS_NAMES[idx]
+    #                 confidence = float(preds[0][idx]) * 100
+    #                 is_drowsy = idx == 0
+    #                 print(f"lable: {label} confidence: {confidence}")
+    #         except Exception as e:
+    #             logger.error(f"Error agg loop: {e}")
+    #             time.sleep(0.1)
+
     def aggregation_loop(self):
         last_run_time = time.time()
         while not self.stop_event.is_set():
@@ -160,6 +261,11 @@ class BehaviouralDetectorSync:
     def process_frame(self, frame, timestamp_ms):
         try:
             img_h, img_w, _ = frame.shape
+            preprocessed = self.drowsiness_frame_preprocess(frame)
+            if preprocessed is None:
+                return
+            img = preprocessed
+            self.drowsiness_feature_queue.append(img)
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
             results = self.landmarker.detect_for_video(mp_image, timestamp_ms)
