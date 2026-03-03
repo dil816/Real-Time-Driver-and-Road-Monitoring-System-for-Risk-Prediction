@@ -28,7 +28,6 @@ async def lifespan(app_: FastAPI):
     logger.info("Application shutdown complete")
 
 
-# FastAPI application
 app = FastAPI(title="Real-time Data Processing Pipeline", lifespan=lifespan)
 
 
@@ -37,7 +36,7 @@ async def websocket_endpoint(websocket: WebSocket):
     await pipeline.websocket_server.connect(websocket)
     try:
         while True:
-            await websocket.receive_text()  # keep connection alive
+            await websocket.receive_text()
     except WebSocketDisconnect:
         pipeline.websocket_server.disconnect(websocket)
 
