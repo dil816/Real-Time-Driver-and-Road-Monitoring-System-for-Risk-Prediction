@@ -16,6 +16,7 @@ class WeatherServiceProvider extends ChangeNotifier {
   bool isWeatherConnected = false;
   bool isDayTime = true;
 
+
   bool get getWeatherConnected => isWeatherConnected;
 
   String get getTemperature => temperature;
