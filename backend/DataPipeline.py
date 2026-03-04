@@ -85,7 +85,7 @@ class DataPipeline:
                 if await self.buffer.should_process():
                     df, env_data = await self.buffer.get_and_clear()
                     if df is not None and not df.empty:
-                        logger.info(f"Running inference on {len(df)} samples")
+                        logger.info(f"Running inference on {len(df)} HRV samples")
                         hrv_data = await self.ml_engine.predict(df)
                         if hrv_data is not None:
                             logger.info(f"Inference complete: {len(hrv_data)} predictions")
