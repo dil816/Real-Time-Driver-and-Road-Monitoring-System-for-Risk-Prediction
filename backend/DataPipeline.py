@@ -89,9 +89,11 @@ class DataPipeline:
                     if df is not None and not df.empty:
                         logger.info(f"Running inference on {len(df)} HRV samples")
                         hrv_data = await self.ml_engine.predict(df)
+                        # hrv_data = await asyncio.to_thread(self.ml_engine.predict, df)
                         if hrv_data is not None:
-                            logger.info(f"Inference complete: {len(hrv_data)} predictions")
-                            # bhv_data = await self.bhv_processor.get_recent_prediction()
+                            logger.info(f"HRV predictions complete")
+                            # bhv_data = self.bhv_processor.behavioral_queue.get_nowait()
+                            # drw_data = self.bhv_processor.drowsiness_queue.get_nowait()
                             bhv_data = await asyncio.to_thread(self.bhv_processor.behavioral_queue.get_nowait)
                             drw_data = await asyncio.to_thread(self.bhv_processor.drowsiness_queue.get_nowait)
                             data_obj = {
