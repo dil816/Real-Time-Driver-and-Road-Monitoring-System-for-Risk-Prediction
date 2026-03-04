@@ -118,7 +118,6 @@ class DataPipeline:
     async def start(self):
         try:
             self.ml_engine.load_model()
-            logger.info("ML model loaded successfully")
             self.processing_task = asyncio.create_task(self.periodic_inference())
             if not await self.serial_reader.connect():
                 raise RuntimeError("Failed to connect to serial reader")
