@@ -23,11 +23,11 @@ class MLInferenceEngine:
 
     def load_model(self, model_path: Optional[str] = None):
         self.model = joblib.load('random_forest_model.pkl')
-        logger.info("ML model loaded (placeholder)")
+        logger.info("HRV model loaded")
 
     async def predict(self, df: pd.DataFrame):
         if self.model is None:
-            logger.warning("Model not loaded")
+            logger.warning("HRV Model not loaded")
             return None
         try:
             feature_cols = [col for col in df.columns if col != 'timestamp']
