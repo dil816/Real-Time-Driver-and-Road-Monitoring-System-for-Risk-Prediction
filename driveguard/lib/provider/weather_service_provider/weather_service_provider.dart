@@ -8,6 +8,7 @@ class WeatherServiceProvider extends ChangeNotifier {
   final weatherService = WeatherService(
     apiKey: 'AIzaSyAcA81-KG1e5vpHRlKlPfn1UUHZBJAMzTA',
   );
+
   String temperature = "0";
   String rainProbability = "0";
   String rainProbabilitytype = "";
