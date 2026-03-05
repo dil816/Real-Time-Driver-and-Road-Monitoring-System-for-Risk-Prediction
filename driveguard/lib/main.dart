@@ -2,9 +2,11 @@ import 'package:driveguard/provider/driver_live_monitor/driver_live_monitor.dart
 import 'package:driveguard/provider/esp_device_provider/esp_device_provider.dart';
 import 'package:driveguard/provider/road_protection_provider/road_protection_provider.dart';
 import 'package:driveguard/provider/speed_provider/speed_provider.dart';
+import 'package:driveguard/provider/splash_provider/splash_provider.dart';
 import 'package:driveguard/provider/weather_service_provider/weather_service_provider.dart';
 import 'package:driveguard/provider/websocket_service_provider/websocket_service.dart';
 import 'package:driveguard/screens/main_navigation_screen/main_navigation_screen.dart';
+import 'package:driveguard/screens/onboarding_screen/onboarding_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -17,6 +19,7 @@ void main() {
         ChangeNotifierProvider(create: (context) => RoadProtectionProvider()),
         ChangeNotifierProvider(create: (context) => EspDeviceProvider()),
         ChangeNotifierProvider(create: (context) => DriverLiveMonitor()),
+        ChangeNotifierProvider(create: (context)=>SplashProvider()),
         Provider(create: (context) => WebSocketService()),
       ],
       child: const MyApp(),
@@ -48,7 +51,7 @@ class MyApp extends StatelessWidget {
           headlineLarge: TextStyle(fontSize: 64, fontWeight: FontWeight.w700),
         ),
       ),
-      home: const MainNavigationScreen(),
+      home: const ProfessionalOnboarding(),
     );
   }
 }
