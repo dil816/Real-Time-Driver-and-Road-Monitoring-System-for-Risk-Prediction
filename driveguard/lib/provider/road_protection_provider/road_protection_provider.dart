@@ -9,8 +9,22 @@ import 'package:driveguard/provider/weather_service_provider/weather_service_pro
 import 'package:flutter/cupertino.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
+import 'dart:async';
+import 'package:audioplayers/audioplayers.dart';
 
 class RoadProtectionProvider extends ChangeNotifier {
+
+  void debugTestSpeedSign() {
+    _triggerSpeedSignBeep(60);
+  }
+  final AudioPlayer _beepPlayer = AudioPlayer();
+  Timer? _stopBeepTimer;
+
+  bool isSpeedSignAlertOn = false;
+
+  double? _lastSpeedLimitAlerted;
+  DateTime? _lastAlertAt;
+
   bool isRoadProtectionActive = false;
   bool isRainProtectionActive = false;
   double roadProtectionSpeedLimit = 0.0;
@@ -52,6 +66,40 @@ class RoadProtectionProvider extends ChangeNotifier {
     }
     notifyListeners();
   }
+  Future<void> _triggerSpeedSignBeep(double speedLimit) async {
+    final now = DateTime.now();
+    final recentlyAlerted = _lastAlertAt != null &&
+        now.difference(_lastAlertAt!).inMilliseconds < 2500;
+
+    if (recentlyAlerted && _lastSpeedLimitAlerted == speedLimit) return;
+
+    _lastSpeedLimitAlerted = speedLimit;
+    _lastAlertAt = now;
+
+    isSpeedSignAlertOn = true;
+    notifyListeners();
+
+    _stopBeepTimer?.cancel();
+
+    try {
+      await _beepPlayer.stop();
+      await _beepPlayer.setVolume(1.0);
+      await _beepPlayer.setReleaseMode(ReleaseMode.loop);
+
+
+      await _beepPlayer.play(AssetSource('sounds/beep.mp3'));
+
+      _stopBeepTimer = Timer(const Duration(seconds: 2), () async {
+        await _beepPlayer.stop();
+        isSpeedSignAlertOn = false;
+        notifyListeners();
+      });
+    } catch (e) {
+      print("Beep error: $e");
+      isSpeedSignAlertOn = false;
+      notifyListeners();
+    }
+  }
 
   Future<void> getRoadSignPrediction({required Uint8List imageBytes}) async {
     final dioClient = DioClient().dio;
@@ -80,13 +128,23 @@ class RoadProtectionProvider extends ChangeNotifier {
         String? match = regExp.stringMatch(detected_sign?.lables?.first ?? "");
 
         if (match != null) {
-          double speedLimit = double.parse(match);
+          final speedLimit = double.parse(match);
           roadProtectionSpeedLimit = speedLimit;
+
+          // fire-and-forget
+          _triggerSpeedSignBeep(speedLimit);
         }
       }
     } else {
       print("Failed to get prediction. Status code: ${response.statusCode}");
     }
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _stopBeepTimer?.cancel();
+    _beepPlayer.dispose();
+    super.dispose();
   }
 }
