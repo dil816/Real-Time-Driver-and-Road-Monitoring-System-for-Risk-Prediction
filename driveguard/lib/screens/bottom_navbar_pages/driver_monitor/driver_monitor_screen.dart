@@ -84,7 +84,7 @@ class _DriverMonitorScreenState extends State<DriverMonitorScreen> {
                   ),
                 ),
               ),
-              !driver_monitor.isDriverAlert?buildDriverStatusCard(driver_monitor):SizedBox()
+              driver_monitor.isDriverAlert?buildDriverStatusCard(driver_monitor):SizedBox()
             ],
           ),
         );

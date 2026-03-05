@@ -33,8 +33,9 @@ class DriverLiveMonitor extends ChangeNotifier {
     temperature = double.parse(data[2]);
     cabinNoiseLevel = double.parse(data[3]);
 
-    evaluateDriverCondition();
     notifyListeners();
+    evaluateDriverCondition();
+
   }
 
   void evaluateDriverCondition() {
@@ -74,7 +75,7 @@ class DriverLiveMonitor extends ChangeNotifier {
 
     if (isDriverAlert) {
       alertMessage = buildAlertMessage();
-      playAlertSound();
+      // playAlertSound();
     } else {
       alertMessage = "Driver Condition Normal";
       stopAlertSound();
