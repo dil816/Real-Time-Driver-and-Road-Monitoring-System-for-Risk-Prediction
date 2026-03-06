@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 manager = ConnectionManager()
 pipeline = DataPipeline(model_path="face_landmarker.task",
                         env_api_key="9d01f5ea97d45f73c4fc7557b27cf0cd",
-                        hrv_serial_port='COM7',
+                        hrv_serial_port='COM10',
                         env_serial_port='COM3',
                         window_seconds=30,
                         baud_rate=115200)
