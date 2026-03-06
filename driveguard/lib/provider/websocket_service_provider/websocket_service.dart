@@ -58,7 +58,7 @@ class WebSocketService {
 
       _channel!.stream.listen(
         (message) {
-          if (kDebugMode) print("Message received at: ${DateTime.now()}");
+          if (kDebugMode) print("WS Data received: ${DateTime.now()}");
           _reconnectAttempts = 0;
           try {
             final json = jsonDecode(message as String) as Map<String, dynamic>;
