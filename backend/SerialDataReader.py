@@ -71,7 +71,7 @@ class SerialDataReader:
             try:
                 line = await asyncio.wait_for(
                     self.hrv_reader.readline(),
-                    timeout=1.0
+                    timeout=2.0
                 )
                 data_str = line.decode('utf-8', errors='ignore').strip()
                 serialdata = json.loads(data_str)
