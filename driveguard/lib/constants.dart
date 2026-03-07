@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 
 class AppConfig {
   static const int port = 8000;
-  static const String lanIp = "192.168.43.230";
+  static const String lanIp = "192.168.43.211";
 
   static String get wsBaseUrl {
     if (kIsWeb) {

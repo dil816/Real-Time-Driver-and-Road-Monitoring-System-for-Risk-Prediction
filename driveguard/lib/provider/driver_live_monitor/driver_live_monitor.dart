@@ -11,9 +11,9 @@ class DriverLiveMonitor extends ChangeNotifier {
   static const double oxygenWarningThreshold = 90;
   static const double highBloodPressureThreshold = 120;
   static const double lowBloodPressureThreshold = 50;
-  static const double temperatureWarningThreshold = 27;
-  static const double highNoiseThreshold = 85;
-  static const double lowNoiseThreshold = 30;
+  static const double temperatureWarningThreshold = 34;
+  static const double highNoiseThreshold = 96;
+  static const double lowNoiseThreshold = 28;
 
 
   bool oxygenWarning = false;
@@ -28,14 +28,18 @@ class DriverLiveMonitor extends ChangeNotifier {
   final AudioPlayer audioPlayer = AudioPlayer();
 
   void setData(List<String> data) {
-    bloodPressure = double.parse(data[0]);
-    bloodOxygenLevel = double.parse(data[1]);
-    temperature = double.parse(data[2]);
-    cabinNoiseLevel = double.parse(data[3]);
+    double bp = double.tryParse(data[0]) ?? 0;
+    double spo2 = double.tryParse(data[1]) ?? 0;
+    double temp = double.tryParse(data[2]) ?? 0;
+    double noise = double.tryParse(data[3]) ?? 0;
+
+    bloodPressure = bp;
+    bloodOxygenLevel = spo2;
+    temperature = temp;
+    cabinNoiseLevel = noise;
 
     notifyListeners();
     evaluateDriverCondition();
-
   }
 
   void evaluateDriverCondition() {
@@ -46,12 +50,12 @@ class DriverLiveMonitor extends ChangeNotifier {
     highNoiseWarning = false;
     lowNoiseWarning = false;
 
-    if (bloodOxygenLevel <= oxygenWarningThreshold) {
+    if (bloodOxygenLevel <= oxygenWarningThreshold  && bloodOxygenLevel>0) {
       oxygenWarning = true;
     }
 
-    if (bloodPressure > highBloodPressureThreshold ||
-        bloodPressure < lowBloodPressureThreshold) {
+    if ((bloodPressure > highBloodPressureThreshold ||
+        bloodPressure < lowBloodPressureThreshold) && bloodPressure>0) {
       bloodPressureWarning = true;
     }
 
@@ -75,7 +79,6 @@ class DriverLiveMonitor extends ChangeNotifier {
 
     if (isDriverAlert) {
       alertMessage = buildAlertMessage();
-      // playAlertSound();
     } else {
       alertMessage = "Driver Condition Normal";
       stopAlertSound();

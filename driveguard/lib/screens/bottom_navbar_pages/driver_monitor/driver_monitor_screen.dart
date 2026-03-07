@@ -6,6 +6,8 @@ import 'package:provider/provider.dart';
 
 import '../../../models/fatigue_data.dart';
 import '../../../provider/websocket_service_provider/websocket_service.dart';
+import '../../../theme.dart';
+import '../../../widgets/dashboard_card.dart';
 
 class DriverMonitorScreen extends StatefulWidget {
   const DriverMonitorScreen({super.key});
@@ -14,12 +16,8 @@ class DriverMonitorScreen extends StatefulWidget {
   State<DriverMonitorScreen> createState() => _DriverMonitorScreenState();
 }
 
-class _DriverMonitorScreenState extends State<DriverMonitorScreen>
-    with TickerProviderStateMixin {
+class _DriverMonitorScreenState extends State<DriverMonitorScreen> {
   late final WebSocketService _service;
-  late AnimationController _pulseController;
-  late AnimationController _shimmerController;
-  late Animation<double> _pulseAnimation;
 
   @override
   void initState() {
@@ -28,757 +26,684 @@ class _DriverMonitorScreenState extends State<DriverMonitorScreen>
     if (!_service.connectionNotifier.value) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _service.connect());
     }
-
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    )..repeat(reverse: true);
-
-    _shimmerController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 3),
-    )..repeat();
-
-    _pulseAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _pulseController.dispose();
-    _shimmerController.dispose();
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Consumer2<DriverLiveMonitor, EspDeviceProvider>(
-      builder:
-          (
-            BuildContext context,
-            DriverLiveMonitor driver_monitor,
-            EspDeviceProvider esp_connector,
-            Widget? child,
+      builder: (
+          BuildContext context,
+          DriverLiveMonitor driver_monitor,
+          EspDeviceProvider esp_connector,
+          Widget? child,
           ) {
-            return Scaffold(
-              backgroundColor: const Color(0xFF050A14),
-              appBar: _buildAppBar(context, driver_monitor, esp_connector),
-              body: ValueListenableBuilder<FatigueData?>(
-                valueListenable: _service.dataNotifier,
-                builder: (context, fatigueData, _) {
-                  return Container(
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Color(0xFF050A14),
-                          Color(0xFF0A1628),
-                          Color(0xFF050A14),
+        return Scaffold(
+          backgroundColor: AppColors.background,
+          body: ValueListenableBuilder<FatigueData?>(
+            valueListenable: _service.dataNotifier,
+            builder: (context, fatigueData, _) {
+              return SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 40),
+
+                    // Header
+                    _DriverMonitorHeader(
+                      espConnector: esp_connector,
+                      driverMonitor: driver_monitor,
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Drowsiness Alert Banner
+                    _DrowsinessAlertBanner(fatigueData: fatigueData),
+
+                    // Driver Alert Banner
+                    if (driver_monitor.isDriverAlert) ...[
+                      const SizedBox(height: 16),
+                      _DriverAlertBanner(driverMonitor: driver_monitor),
+                    ],
+
+                    const SizedBox(height: 20),
+
+                    // Driver Vitals Grid
+                    DashboardCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(Icons.monitor_heart_rounded,
+                                  color: AppColors.blue, size: 22),
+                              SizedBox(width: 8),
+                              Text(
+                                'Driver Vitals',
+                                style: TextStyle(
+                                  color: AppColors.textPrimary,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          GridView.count(
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                            childAspectRatio: 1.45,
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            children: [
+                              _VitalTile(
+                                icon: Icons.favorite_rounded,
+                                iconColor: AppColors.red,
+                                label: 'Blood Oxygen',
+                                subtitle: 'SpO2',
+                                value: driver_monitor.bloodOxygenLevel
+                                    .toStringAsFixed(0),
+                                unit: '%',
+                              ),
+                              _VitalTile(
+                                icon: Icons.device_thermostat_rounded,
+                                iconColor: AppColors.orange,
+                                label: 'Cabin Temp',
+                                subtitle: 'Interior',
+                                value: driver_monitor.temperature
+                                    .toStringAsFixed(0),
+                                unit: 'C',
+                              ),
+                              _VitalTile(
+                                icon: Icons.monitor_heart_rounded,
+                                iconColor: AppColors.pink,
+                                label: 'Blood Pressure',
+                                subtitle: 'Heart rate',
+                                value: driver_monitor.bloodPressure
+                                    .toStringAsFixed(0),
+                                unit: 'BPM',
+                              ),
+                              _VitalTile(
+                                icon: Icons.graphic_eq_rounded,
+                                iconColor: AppColors.cyan,
+                                label: 'Cabin Noise',
+                                subtitle: 'Ambient',
+                                value: driver_monitor.cabinNoiseLevel
+                                    .toStringAsFixed(0),
+                                unit: 'dB',
+                              ),
+                            ],
+                          ),
                         ],
                       ),
                     ),
-                    child: Column(
-                      children: [
-                        _buildStatusBar(driver_monitor, esp_connector),
-                        Flexible(
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                            child: GridView.count(
-                              crossAxisCount: 2,
-                              mainAxisSpacing: 12,
-                              crossAxisSpacing: 12,
-                              childAspectRatio: 0.92,
-                              children: [
-                                _buildMetricCard(
-                                  title: 'Blood Oxygen',
-                                  subtitle: 'SpO2',
-                                  value: driver_monitor.bloodOxygenLevel
-                                      .toStringAsFixed(0),
-                                  unit: '%',
-                                  icon: Icons.bloodtype,
-                                  accentColor: const Color(0xFF00E5A0),
-                                  glowColor: const Color(0xFF00E5A0),
-                                ),
-                                _buildMetricCard(
-                                  title: 'Cabin Temp',
-                                  subtitle: 'Celsius',
-                                  value: driver_monitor.temperature
-                                      .toStringAsFixed(0),
-                                  unit: '°C',
-                                  icon: Icons.thermostat,
-                                  accentColor: const Color(0xFFFF8C42),
-                                  glowColor: const Color(0xFFFF8C42),
-                                ),
-                                _buildMetricCard(
-                                  title: 'Blood Pressure',
-                                  subtitle: 'Heart Rate',
-                                  value: driver_monitor.bloodPressure
-                                      .toStringAsFixed(0),
-                                  unit: 'BPM',
-                                  icon: Icons.favorite,
-                                  accentColor: const Color(0xFFFF3B6B),
-                                  glowColor: const Color(0xFFFF3B6B),
-                                ),
-                                _buildMetricCard(
-                                  title: 'Cabin Noise',
-                                  subtitle: 'Decibel',
-                                  value: driver_monitor.cabinNoiseLevel
-                                      .toStringAsFixed(0),
-                                  unit: 'dB',
-                                  icon: Icons.graphic_eq,
-                                  accentColor: const Color(0xFF4D9FFF),
-                                  glowColor: const Color(0xFF4D9FFF),
-                                ),
 
-                                _buildMetricCard(
-                                  title: 'Drowsiness',
-                                  subtitle: 'Score',
-                                  value:
-                                      fatigueData
-                                          ?.rawSensorData
-                                          .drowsiness
-                                          .confidence
-                                          .toStringAsFixed(1) ??
-                                      '--',
-                                  unit: '%',
-                                  icon: Icons.psychology,
-                                  accentColor: const Color(0xFFBF6FFF),
-                                  glowColor: const Color(0xFFBF6FFF),
+                    const SizedBox(height: 20),
+
+                    // Drowsiness Analysis Card
+                    DashboardCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(Icons.psychology_rounded,
+                                  color: AppColors.purple, size: 22),
+                              SizedBox(width: 8),
+                              Text(
+                                'Drowsiness Analysis',
+                                style: TextStyle(
+                                  color: AppColors.textPrimary,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
                                 ),
-                                _buildAlertLevelCard(
-                                  fatigueData?.rawSensorData.drowsiness.label ??
-                                      'Unknown',
-                                ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
-                        ),
-                        if (driver_monitor.isDriverAlert)
-                          _buildDriverAlertBanner(driver_monitor),
-                        const SizedBox(height: 8),
-                      ],
+                          const SizedBox(height: 16),
+                          _DrowsinessPanel(fatigueData: fatigueData),
+                        ],
+                      ),
                     ),
-                  );
-                },
-              ),
-            );
-          },
+
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
+}
 
-  PreferredSizeWidget _buildAppBar(
-    BuildContext context,
-    DriverLiveMonitor driver_monitor,
-    EspDeviceProvider esp_connector,
-  ) {
-    return PreferredSize(
-      preferredSize: const Size.fromHeight(64),
-      child: Container(
-        decoration: BoxDecoration(
-          color: const Color(0xFF050A14),
-          border: Border(
-            bottom: BorderSide(
-              color: const Color(0xFF1A3A5C).withOpacity(0.6),
-              width: 1,
-            ),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF0066FF).withOpacity(0.08),
-              blurRadius: 20,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          centerTitle: true,
-          title: Column(
+// Header
+class _DriverMonitorHeader extends StatelessWidget {
+  final EspDeviceProvider espConnector;
+  final DriverLiveMonitor driverMonitor;
+
+  const _DriverMonitorHeader({
+    required this.espConnector,
+    required this.driverMonitor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'DRIVER LIVE MONITOR',
+              const Text(
+                'Driver Live\nMonitor',
                 style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 3,
-                  color: Colors.white.withOpacity(0.95),
+                  color: AppColors.textPrimary,
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  height: 1.2,
                 ),
               ),
-              Text(
-                'Real-time Vitals Dashboard',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w400,
-                  letterSpacing: 1.5,
-                  color: const Color(0xFF4D9FFF).withOpacity(0.8),
-                ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: driverMonitor.isDriverAlert
+                          ? AppColors.red
+                          : AppColors.green,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      driverMonitor.isDriverAlert
+                          ? 'Alert Active'
+                          : 'Real-time Analysis',
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 13,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
-          leading: driver_monitor.isDriverAlert
-              ? Blinker.fade(
-                  startColor: Colors.transparent,
-                  endColor: Colors.red.withOpacity(0.2),
-                  duration: const Duration(milliseconds: 500),
-                  child: Container(
-                    margin: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Colors.red.withOpacity(0.6),
-                        width: 1.5,
-                      ),
-                    ),
-                    child: const Icon(
-                      Icons.warning_rounded,
-                      color: Colors.redAccent,
-                      size: 22,
-                    ),
-                  ),
-                )
-              : Container(
-                  margin: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: const Color(0xFF1A3A5C).withOpacity(0.5),
-                      width: 1,
-                    ),
-                  ),
-                  child: Icon(
-                    Icons.warning_rounded,
-                    color: Colors.white.withOpacity(0.2),
-                    size: 22,
-                  ),
-                ),
-          actions: [
-            Padding(
-              padding: const EdgeInsets.only(right: 12.0),
-              child: GestureDetector(
-                onTap: () {
-                  Provider.of<EspDeviceProvider>(
-                    context,
-                    listen: false,
-                  ).startdrivermonitorScan();
-                },
-                child: AnimatedBuilder(
-                  animation: _pulseAnimation,
-                  builder: (context, child) {
-                    return Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: esp_connector.isDriverMonitorConnecteed
-                            ? const Color(0xFF00E5A0).withOpacity(0.12)
-                            : Colors.transparent,
-                        border: Border.all(
-                          color: esp_connector.isDriverMonitorConnecteed
-                              ? const Color(
-                                  0xFF00E5A0,
-                                ).withOpacity(0.4 * _pulseAnimation.value)
-                              : const Color(0xFF1A3A5C).withOpacity(0.5),
-                          width: 1.5,
-                        ),
-                        boxShadow: esp_connector.isDriverMonitorConnecteed
-                            ? [
-                                BoxShadow(
-                                  color: const Color(
-                                    0xFF00E5A0,
-                                  ).withOpacity(0.3 * _pulseAnimation.value),
-                                  blurRadius: 12,
-                                  spreadRadius: 2,
-                                ),
-                              ]
-                            : [],
-                      ),
-                      child: Icon(
-                        Icons.bluetooth,
-                        color: esp_connector.isDriverMonitorConnecteed
-                            ? const Color(0xFF00E5A0)
-                            : Colors.white24,
-                        size: 20,
-                      ),
-                    );
-                  },
-                ),
+        ),
+        const SizedBox(width: 12),
+        GestureDetector(
+          onTap: () =>
+              Provider.of<EspDeviceProvider>(context, listen: false)
+                  .startdrivermonitorScan(),
+          child: Container(
+            width: 88,
+            padding:
+            const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            decoration: BoxDecoration(
+              color: espConnector.isDriverMonitorConnecteed
+                  ? AppColors.green.withValues(alpha: 0.15)
+                  : AppColors.surfaceVariant,
+              border: Border.all(
+                color: espConnector.isDriverMonitorConnecteed
+                    ? AppColors.green
+                    : AppColors.border,
               ),
+              borderRadius: BorderRadius.circular(10),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatusBar(
-    DriverLiveMonitor driver_monitor,
-    EspDeviceProvider esp_connector,
-  ) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 10, 16, 6),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        color: const Color(0xFF0D1F35),
-        border: Border.all(
-          color: const Color(0xFF1A3A5C).withOpacity(0.5),
-          width: 1,
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildStatusDot(
-            'BLUETOOTH',
-            esp_connector.isDriverMonitorConnecteed,
-            const Color(0xFF00E5A0),
-          ),
-          Container(width: 1, height: 20, color: const Color(0xFF1A3A5C)),
-          _buildStatusDot('MONITORING', true, const Color(0xFF4D9FFF)),
-          Container(width: 1, height: 20, color: const Color(0xFF1A3A5C)),
-          _buildStatusDot(
-            'ALERT',
-            driver_monitor.isDriverAlert,
-            const Color(0xFFFF3B6B),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatusDot(String label, bool active, Color color) {
-    return Row(
-      children: [
-        AnimatedBuilder(
-          animation: _pulseAnimation,
-          builder: (context, child) {
-            return Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: active ? color : Colors.white12,
-                boxShadow: active
-                    ? [
-                        BoxShadow(
-                          color: color.withOpacity(0.6 * _pulseAnimation.value),
-                          blurRadius: 6,
-                          spreadRadius: 1,
-                        ),
-                      ]
-                    : [],
-              ),
-            );
-          },
-        ),
-        const SizedBox(width: 6),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 9,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1.2,
-            color: active ? color.withOpacity(0.9) : Colors.white24,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.bluetooth_rounded,
+                  color: espConnector.isDriverMonitorConnecteed
+                      ? AppColors.green
+                      : AppColors.textSecondary,
+                  size: 18,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  espConnector.isDriverMonitorConnecteed
+                      ? 'CONNECTED'
+                      : 'SCAN',
+                  style: TextStyle(
+                    color: espConnector.isDriverMonitorConnecteed
+                        ? AppColors.green
+                        : AppColors.textSecondary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 10,
+                  ),
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
           ),
         ),
       ],
     );
   }
+}
 
-  Widget _buildMetricCard({
-    required String title,
-    required String subtitle,
-    required String value,
-    required String unit,
-    required IconData icon,
-    required Color accentColor,
-    required Color glowColor,
-  }) {
-    return AnimatedBuilder(
-      animation: _pulseAnimation,
-      builder: (context, child) {
-        return Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            color: const Color(0xFF0A1628),
-            border: Border.all(color: accentColor.withOpacity(0.25), width: 1),
-            boxShadow: [
-              BoxShadow(
-                color: glowColor.withOpacity(0.07),
-                blurRadius: 16,
-                offset: const Offset(0, 4),
+// Drowsiness Alert Banner
+class _DrowsinessAlertBanner extends StatelessWidget {
+  final FatigueData? fatigueData;
+
+  const _DrowsinessAlertBanner({required this.fatigueData});
+
+  @override
+  Widget build(BuildContext context) {
+    if (fatigueData == null) return const SizedBox.shrink();
+    final drowsiness = fatigueData!.rawSensorData.drowsiness;
+    if (drowsiness.label != 'Drowsy' || drowsiness.confidence <= 80) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: AppColors.alertGradients['CRITICAL'] ??
+              [const Color(0xFF2D0A0A), const Color(0xFF1A0505)],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.red, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.red.withValues(alpha: 0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          const Icon(Icons.bedtime_rounded, color: Colors.white, size: 44),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'FATIGUE DETECTED',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Fatigue: ${drowsiness.label}',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    fontSize: 13,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Text',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.7),
+                    fontSize: 12,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Confidence',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.8),
+                  fontSize: 11,
+                ),
+              ),
+              Text(
+                '${(drowsiness.confidence * 1).toStringAsFixed(1)}%',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 36,
+                  height: 1,
+                ),
               ),
             ],
           ),
-          child: Stack(
-            children: [
-              // Background glow blob
-              Positioned(
-                top: -20,
-                right: -20,
-                child: Container(
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: RadialGradient(
-                      colors: [
-                        accentColor.withOpacity(0.12),
-                        Colors.transparent,
-                      ],
-                    ),
+        ],
+      ),
+    );
+  }
+}
+
+// Driver Alert Banner
+class _DriverAlertBanner extends StatelessWidget {
+  final DriverLiveMonitor driverMonitor;
+
+  const _DriverAlertBanner({required this.driverMonitor});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: AppColors.alertGradients['WARNING'] ??
+              [const Color(0xFF2D1A00), const Color(0xFF1A0F00)],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.orange, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.orange.withValues(alpha: 0.25),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 44,
+            height: 44,
+            child: Blinker.fade(
+              startColor: Colors.transparent,
+              endColor: AppColors.orange,
+              duration: const Duration(milliseconds: 500),
+              child: const Icon(
+                Icons.warning_amber_rounded,
+                color: Colors.white,
+                size: 44,
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'DRIVER ALERT',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
                   ),
                 ),
+                const SizedBox(height: 4),
+                Text(
+                  "${driverMonitor.alertMessage}",
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    fontSize: 13,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Vital Tile
+class _VitalTile extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final String label;
+  final String subtitle;
+  final String value;
+  final String unit;
+
+  const _VitalTile({
+    required this.icon,
+    required this.iconColor,
+    required this.label,
+    required this.subtitle,
+    required this.value,
+    required this.unit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceVariant.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Icon + label — Flexible prevents overflow
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(icon, color: iconColor, size: 14),
+              const SizedBox(width: 5),
+              Flexible(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
               ),
-              // Top accent line
-              Positioned(
-                top: 0,
-                left: 24,
-                right: 24,
-                child: Container(
-                  height: 2,
-                  decoration: BoxDecoration(
-                    borderRadius: const BorderRadius.vertical(
-                      bottom: Radius.circular(2),
-                    ),
-                    gradient: LinearGradient(
-                      colors: [
-                        Colors.transparent,
-                        accentColor.withOpacity(0.7),
-                        Colors.transparent,
-                      ],
+            ],
+          ),
+
+          // Value — FittedBox scales down if number is too wide
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    value,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                      height: 1,
                     ),
                   ),
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            color: accentColor.withOpacity(0.12),
-                            border: Border.all(
-                              color: accentColor.withOpacity(0.25),
-                              width: 1,
-                            ),
-                          ),
-                          child: Icon(icon, size: 20, color: accentColor),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(20),
-                            color: accentColor.withOpacity(0.1),
-                          ),
-                          child: Text(
-                            'LIVE',
-                            style: TextStyle(
-                              fontSize: 8,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1.5,
-                              color: accentColor,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Spacer(),
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.5,
-                        color: Colors.white.withOpacity(0.6),
-                      ),
-                    ),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w400,
-                        letterSpacing: 0.5,
-                        color: Colors.white.withOpacity(0.3),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          value,
-                          style: TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.w800,
-                            height: 1,
-                            color: accentColor,
-                            shadows: [
-                              Shadow(
-                                color: accentColor.withOpacity(
-                                  0.5 * _pulseAnimation.value,
-                                ),
-                                blurRadius: 10,
-                              ),
-                            ],
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 4, left: 3),
-                          child: Text(
-                            unit,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              color: accentColor.withOpacity(0.7),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildAlertLevelCard(String alertLabel) {
-    final isAlert =
-        alertLabel.toLowerCase() != 'safe' &&
-        alertLabel.toLowerCase() != 'awake';
-    final cardColor = isAlert
-        ? const Color(0xFFFF8C42)
-        : const Color(0xFF00E5A0);
-
-    return AnimatedBuilder(
-      animation: _pulseAnimation,
-      builder: (context, child) {
-        return Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [cardColor.withOpacity(0.18), const Color(0xFF0A1628)],
-            ),
-            border: Border.all(color: cardColor.withOpacity(0.4), width: 1.5),
-            boxShadow: [
-              BoxShadow(
-                color: cardColor.withOpacity(0.12 * _pulseAnimation.value),
-                blurRadius: 20,
-                spreadRadius: 2,
-              ),
-            ],
-          ),
-          child: Stack(
-            children: [
-              Positioned(
-                top: 0,
-                left: 24,
-                right: 24,
-                child: Container(
-                  height: 2,
-                  decoration: BoxDecoration(
-                    borderRadius: const BorderRadius.vertical(
-                      bottom: Radius.circular(2),
-                    ),
-                    gradient: LinearGradient(
-                      colors: [
-                        Colors.transparent,
-                        cardColor.withOpacity(0.8),
-                        Colors.transparent,
-                      ],
-                    ),
+                padding: const EdgeInsets.only(bottom: 2, left: 2),
+                child: Text(
+                  unit,
+                  style: TextStyle(
+                    color: iconColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            color: cardColor.withOpacity(0.15),
-                            border: Border.all(
-                              color: cardColor.withOpacity(0.3),
-                              width: 1,
-                            ),
-                          ),
-                          child: Icon(
-                            isAlert
-                                ? Icons.warning_amber_rounded
-                                : Icons.check_circle_outline,
-                            size: 20,
-                            color: cardColor,
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 3,
-                          ),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(20),
-                            color: cardColor.withOpacity(0.12),
-                          ),
-                          child: Text(
-                            isAlert ? 'ALERT' : 'OK',
-                            style: TextStyle(
-                              fontSize: 8,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1.5,
-                              color: cardColor,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Spacer(),
-                    Text(
-                      'Alert Level',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.5,
-                        color: Colors.white.withOpacity(0.6),
-                      ),
-                    ),
-                    Text(
-                      'Status',
-                      style: TextStyle(
-                        fontSize: 9,
-                        color: Colors.white.withOpacity(0.3),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      alertLabel,
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                        color: cardColor,
-                        shadows: [
-                          Shadow(
-                            color: cardColor.withOpacity(
-                              0.5 * _pulseAnimation.value,
-                            ),
-                            blurRadius: 10,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+            ],
+          ),
+
+          // Subtitle
+          Text(
+            subtitle,
+            style: const TextStyle(
+              color: AppColors.textMuted,
+              fontSize: 10,
+            ),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Drowsiness Panel
+class _DrowsinessPanel extends StatelessWidget {
+  final FatigueData? fatigueData;
+
+  const _DrowsinessPanel({required this.fatigueData});
+
+  @override
+  Widget build(BuildContext context) {
+    if (fatigueData == null) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 20),
+          child: Text(
+            'Waiting for data...',
+            style: TextStyle(color: AppColors.textMuted),
+          ),
+        ),
+      );
+    }
+
+    final drowsiness = fatigueData!.rawSensorData.drowsiness;
+    final isDrowsy = drowsiness.label == 'Drowsy';
+    final accentColor = isDrowsy ? AppColors.red : AppColors.green;
+
+    return Column(
+      children: [
+        // Score bar panel
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceVariant.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Drowsiness Score',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
                 ),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      drowsiness.label,
+                      style: TextStyle(
+                        color: accentColor,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${drowsiness.confidence.toStringAsFixed(1)}%',
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: drowsiness.confidence / 100,
+                  minHeight: 8,
+                  backgroundColor: AppColors.border,
+                  valueColor: AlwaysStoppedAnimation<Color>(accentColor),
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Alert',
+                    style:
+                    TextStyle(color: AppColors.textMuted, fontSize: 11),
+                  ),
+                  Text(
+                    'Drowsy',
+                    style:
+                    TextStyle(color: AppColors.textMuted, fontSize: 11),
+                  ),
+                ],
               ),
             ],
           ),
-        );
-      },
-    );
-  }
+        ),
 
-  Widget _buildDriverAlertBanner(DriverLiveMonitor driver_monitor) {
-    return AnimatedBuilder(
-      animation: _pulseAnimation,
-      builder: (context, child) {
-        return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        const SizedBox(height: 12),
+
+        // Status chip
+        Container(
+          width: double.infinity,
+          padding:
+          const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF3D1500), Color(0xFF1A0800)],
-            ),
+            color: accentColor.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: const Color(
-                0xFFFF4500,
-              ).withOpacity(0.4 + 0.3 * _pulseAnimation.value),
-              width: 1.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(
-                  0xFFFF4500,
-                ).withOpacity(0.2 * _pulseAnimation.value),
-                blurRadius: 24,
-                spreadRadius: 2,
-              ),
-            ],
+                color: accentColor.withValues(alpha: 0.3)),
           ),
           child: Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: const Color(0xFFFF4500).withOpacity(0.15),
-                  border: Border.all(
-                    color: const Color(0xFFFF4500).withOpacity(0.5),
-                    width: 1.5,
-                  ),
-                ),
-                child: const Icon(
-                  Icons.warning_amber_rounded,
-                  size: 26,
-                  color: Color(0xFFFF6B35),
-                ),
+              Icon(
+                isDrowsy
+                    ? Icons.bedtime_rounded
+                    : Icons.check_circle_rounded,
+                color: accentColor,
+                size: 20,
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 10),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '⚠ DRIVER ALERT',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 2,
-                        color: const Color(0xFFFF6B35).withOpacity(0.8),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${driver_monitor.alertMessage}',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  isDrowsy
+                      ? 'Driver appears drowsy — take action'
+                      : 'Driver is alert and attentive',
+                  style: TextStyle(
+                    color: accentColor,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
                 ),
               ),
             ],
           ),
-        );
-      },
+        ),
+      ],
     );
   }
 }
