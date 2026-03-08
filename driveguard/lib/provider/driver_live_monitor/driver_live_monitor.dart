@@ -1,3 +1,112 @@
+// import 'package:audioplayers/audioplayers.dart';
+// import 'package:flutter/widgets.dart';
+//
+// class DriverLiveMonitor extends ChangeNotifier {
+//
+//   double bloodOxygenLevel = 0;
+//   double temperature = 0;
+//   double bloodPressure = 0;
+//   double cabinNoiseLevel = 0;
+//
+//   static const double oxygenWarningThreshold = 90;
+//   static const double highBloodPressureThreshold = 120;
+//   static const double lowBloodPressureThreshold = 50;
+//   static const double temperatureWarningThreshold = 34;
+//   static const double highNoiseThreshold = 96;
+//   static const double lowNoiseThreshold = 28;
+//
+//
+//   bool oxygenWarning = false;
+//   bool bloodPressureWarning = false;
+//   bool temperatureWarning = false;
+//   bool highNoiseWarning = false;
+//   bool lowNoiseWarning = false;
+//
+//   bool isDriverAlert = false;
+//   String? alertMessage;
+//
+//   final AudioPlayer audioPlayer = AudioPlayer();
+//
+//   void setData(List<String> data) {
+//     double bp = double.tryParse(data[0]) ?? 0;
+//     double spo2 = double.tryParse(data[1]) ?? 0;
+//     double temp = double.tryParse(data[2]) ?? 0;
+//     double noise = double.tryParse(data[3]) ?? 0;
+//
+//     bloodPressure = bp;
+//     bloodOxygenLevel = spo2;
+//     temperature = temp;
+//     cabinNoiseLevel = noise;
+//
+//     notifyListeners();
+//     evaluateDriverCondition();
+//   }
+//
+//   void evaluateDriverCondition() {
+//
+//     oxygenWarning = false;
+//     bloodPressureWarning = false;
+//     temperatureWarning = false;
+//     highNoiseWarning = false;
+//     lowNoiseWarning = false;
+//
+//     if (bloodOxygenLevel <= oxygenWarningThreshold  && bloodOxygenLevel>0) {
+//       oxygenWarning = true;
+//     }
+//
+//     if ((bloodPressure > highBloodPressureThreshold ||
+//         bloodPressure < lowBloodPressureThreshold) && bloodPressure>0) {
+//       bloodPressureWarning = true;
+//     }
+//
+//     if (temperature > temperatureWarningThreshold) {
+//       temperatureWarning = true;
+//     }
+//
+//     if (cabinNoiseLevel > highNoiseThreshold) {
+//       highNoiseWarning = true;
+//     }
+//
+//     if (cabinNoiseLevel < lowNoiseThreshold) {
+//       lowNoiseWarning = true;
+//     }
+//
+//     isDriverAlert = oxygenWarning ||
+//         bloodPressureWarning ||
+//         temperatureWarning ||
+//         highNoiseWarning ||
+//         lowNoiseWarning;
+//
+//     if (isDriverAlert) {
+//       alertMessage = buildAlertMessage();
+//     } else {
+//       alertMessage = "Driver Condition Normal";
+//       stopAlertSound();
+//     }
+//   }
+//
+//   String buildAlertMessage() {
+//     List<String> issues = [];
+//
+//     if (oxygenWarning) issues.add("Low Oxygen");
+//     if (bloodPressureWarning) issues.add("Abnormal Blood Pressure");
+//     if (temperatureWarning) issues.add("High Temperature");
+//     if (highNoiseWarning) issues.add("High Cabin Noise");
+//     if (lowNoiseWarning) issues.add("Low Cabin Noise");
+//
+//     return "ALERT: ${issues.join(', ')}. Please take rest.";
+//   }
+//
+//   void playAlertSound() async {
+//     audioPlayer.setReleaseMode(ReleaseMode.loop);
+//     await audioPlayer.play(AssetSource('audio/warning.mp3'));
+//   }
+//
+//   void stopAlertSound() async {
+//     await audioPlayer.stop();
+//   }
+// }
+
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/widgets.dart';
 
@@ -8,19 +117,33 @@ class DriverLiveMonitor extends ChangeNotifier {
   double bloodPressure = 0;
   double cabinNoiseLevel = 0;
 
+  // ── Thresholds ─────────────────────────────────────────────────────────────
+  //
+  // SpO2: warn if below 90% (clinically low oxygen — unchanged, was correct)
   static const double oxygenWarningThreshold = 90;
-  static const double highBloodPressureThreshold = 120;
-  static const double lowBloodPressureThreshold = 50;
-  static const double temperatureWarningThreshold = 34;
-  static const double highNoiseThreshold = 96;
-  static const double lowNoiseThreshold = 28;
 
+  // Blood pressure (BPM from your sensor):
+  //   Warn if above 100 BPM (tachycardia) or below 40 BPM (bradycardia).
+  //   The old upper limit of 120 fired on any normal resting HR (~70–80 BPM).
+  //   The old lower limit of 50 fired when sensor sends 0 on startup.
+  static const double highBloodPressureThreshold = 100;
+  static const double lowBloodPressureThreshold  = 40;
 
-  bool oxygenWarning = false;
+  // Cabin temperature: warn above 38°C (genuinely hot cabin).
+  //   Old value of 34°C is normal body/ambient temperature — always warned.
+  static const double temperatureWarningThreshold = 38;
+
+  // Cabin noise:
+  //   Warn above 85 dB (sustained exposure risk — old 96 dB was too lenient).
+  //   REMOVED the low-noise warning: a quiet cabin is NOT a driver risk.
+  //   The old < 28 dB guard fired almost constantly in normal driving.
+  static const double highNoiseThreshold = 85;
+
+  // ── Warning flags ──────────────────────────────────────────────────────────
+  bool oxygenWarning       = false;
   bool bloodPressureWarning = false;
-  bool temperatureWarning = false;
-  bool highNoiseWarning = false;
-  bool lowNoiseWarning = false;
+  bool temperatureWarning  = false;
+  bool highNoiseWarning    = false;
 
   bool isDriverAlert = false;
   String? alertMessage;
@@ -28,57 +151,57 @@ class DriverLiveMonitor extends ChangeNotifier {
   final AudioPlayer audioPlayer = AudioPlayer();
 
   void setData(List<String> data) {
-    double bp = double.tryParse(data[0]) ?? 0;
-    double spo2 = double.tryParse(data[1]) ?? 0;
-    double temp = double.tryParse(data[2]) ?? 0;
+    double bp    = double.tryParse(data[0]) ?? 0;
+    double spo2  = double.tryParse(data[1]) ?? 0;
+    double temp  = double.tryParse(data[2]) ?? 0;
     double noise = double.tryParse(data[3]) ?? 0;
 
-    bloodPressure = bp;
-    bloodOxygenLevel = spo2;
-    temperature = temp;
-    cabinNoiseLevel = noise;
+    bloodPressure     = bp;
+    bloodOxygenLevel  = spo2;
+    temperature       = temp;
+    cabinNoiseLevel   = noise;
 
     notifyListeners();
     evaluateDriverCondition();
   }
 
   void evaluateDriverCondition() {
-
-    oxygenWarning = false;
+    // Reset all flags
+    oxygenWarning        = false;
     bloodPressureWarning = false;
-    temperatureWarning = false;
-    highNoiseWarning = false;
-    lowNoiseWarning = false;
+    temperatureWarning   = false;
+    highNoiseWarning     = false;
 
-    if (bloodOxygenLevel <= oxygenWarningThreshold  && bloodOxygenLevel>0) {
+    // SpO2: only warn on a real reading (> 0) that is clinically low
+    if (bloodOxygenLevel > 0 && bloodOxygenLevel < oxygenWarningThreshold) {
       oxygenWarning = true;
     }
 
-    if ((bloodPressure > highBloodPressureThreshold ||
-        bloodPressure < lowBloodPressureThreshold) && bloodPressure>0) {
+    // Heart rate / BP: only warn on a real reading (> 0) outside safe range
+    if (bloodPressure > 0 &&
+        (bloodPressure > highBloodPressureThreshold ||
+            bloodPressure < lowBloodPressureThreshold)) {
       bloodPressureWarning = true;
     }
 
-    if (temperature > temperatureWarningThreshold) {
+    // Temperature: only warn on a real reading (> 0) that is genuinely hot
+    if (temperature > 0 && temperature > temperatureWarningThreshold) {
       temperatureWarning = true;
     }
 
-    if (cabinNoiseLevel > highNoiseThreshold) {
+    // Noise: only warn on a real reading (> 0) that is dangerously loud
+    if (cabinNoiseLevel > 0 && cabinNoiseLevel > highNoiseThreshold) {
       highNoiseWarning = true;
-    }
-
-    if (cabinNoiseLevel < lowNoiseThreshold) {
-      lowNoiseWarning = true;
     }
 
     isDriverAlert = oxygenWarning ||
         bloodPressureWarning ||
         temperatureWarning ||
-        highNoiseWarning ||
-        lowNoiseWarning;
+        highNoiseWarning;
 
     if (isDriverAlert) {
       alertMessage = buildAlertMessage();
+      playAlertSound();
     } else {
       alertMessage = "Driver Condition Normal";
       stopAlertSound();
@@ -88,11 +211,10 @@ class DriverLiveMonitor extends ChangeNotifier {
   String buildAlertMessage() {
     List<String> issues = [];
 
-    if (oxygenWarning) issues.add("Low Oxygen");
-    if (bloodPressureWarning) issues.add("Abnormal Blood Pressure");
-    if (temperatureWarning) issues.add("High Temperature");
-    if (highNoiseWarning) issues.add("High Cabin Noise");
-    if (lowNoiseWarning) issues.add("Low Cabin Noise");
+    if (oxygenWarning)        issues.add("Low Oxygen (SpO2 ${bloodOxygenLevel.toStringAsFixed(0)}%)");
+    if (bloodPressureWarning) issues.add("Abnormal Heart Rate (${bloodPressure.toStringAsFixed(0)} BPM)");
+    if (temperatureWarning)   issues.add("High Cabin Temp (${temperature.toStringAsFixed(0)}°C)");
+    if (highNoiseWarning)     issues.add("High Cabin Noise (${cabinNoiseLevel.toStringAsFixed(0)} dB)");
 
     return "ALERT: ${issues.join(', ')}. Please take rest.";
   }
