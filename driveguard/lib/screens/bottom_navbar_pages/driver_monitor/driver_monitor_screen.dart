@@ -8,6 +8,7 @@ import '../../../models/fatigue_data.dart';
 import '../../../provider/websocket_service_provider/websocket_service.dart';
 import '../../../theme.dart';
 import '../../../widgets/dashboard_card.dart';
+import 'package:audioplayers/audioplayers.dart';
 
 class DriverMonitorScreen extends StatefulWidget {
   const DriverMonitorScreen({super.key});
@@ -18,6 +19,8 @@ class DriverMonitorScreen extends StatefulWidget {
 
 class _DriverMonitorScreenState extends State<DriverMonitorScreen> {
   late final WebSocketService _service;
+  final AudioPlayer _beepPlayer = AudioPlayer();
+  bool _wasDrowsy = false;
 
   @override
   void initState() {
@@ -26,6 +29,28 @@ class _DriverMonitorScreenState extends State<DriverMonitorScreen> {
     if (!_service.connectionNotifier.value) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _service.connect());
     }
+    _service.dataNotifier.addListener(_onFatigueDataChanged);
+  }
+
+  void _onFatigueDataChanged() {
+    final data = _service.dataNotifier.value;
+    if (data == null) return;
+
+    final drowsiness = data.rawSensorData.drowsiness;
+    final isDrowsy = drowsiness.label == 'Drowsy' && drowsiness.confidence > 80;
+
+    if (isDrowsy && !_wasDrowsy) {
+      _beepPlayer.stop();
+      _beepPlayer.play(AssetSource('sounds/beep.mp3'));
+    }
+    _wasDrowsy = isDrowsy;
+  }
+
+  @override
+  void dispose() {
+    _service.dataNotifier.removeListener(_onFatigueDataChanged);
+    _beepPlayer.dispose();
+    super.dispose();
   }
 
   @override
@@ -59,11 +84,12 @@ class _DriverMonitorScreenState extends State<DriverMonitorScreen> {
                     // ── Drowsiness Banner — always visible ──
                     _DrowsinessAlertBanner(fatigueData: fatigueData),
 
-                    // Driver Alert Banner
-                    if (driver_monitor.isDriverAlert) ...[
-                      const SizedBox(height: 16),
-                      _DriverAlertBanner(driverMonitor: driver_monitor),
-                    ],
+                    const SizedBox(height: 16),
+
+                    // ── Driver Alert Banner — always visible ──
+                    // Shows green "Normal" state when no alert, orange when alert active.
+                    // Logic in DriverLiveMonitor is NOT changed.
+                    _DriverAlertBanner(driverMonitor: driver_monitor),
 
                     const SizedBox(height: 20),
 
@@ -292,13 +318,6 @@ class _DriverMonitorHeader extends StatelessWidget {
 }
 
 // ─── Drowsiness Alert Banner — always visible ─────────────────────────────────
-//
-// GREEN  → label is NOT 'Drowsy' or confidence ≤ 80  (driver is fine)
-// RED    → label == 'Drowsy' AND confidence > 80      (driver is drowsy)
-//
-// No logic changes — only the early-return guard was removed and theming
-// is now driven by the same existing data fields.
-// ─────────────────────────────────────────────────────────────────────────────
 class _DrowsinessAlertBanner extends StatelessWidget {
   final FatigueData? fatigueData;
 
@@ -306,16 +325,12 @@ class _DrowsinessAlertBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Still hide when there is no data at all
     if (fatigueData == null) return const SizedBox.shrink();
 
     final drowsiness = fatigueData!.rawSensorData.drowsiness;
-
-    // ── State decision (same condition that was previously used to hide/show) ──
     final isDrowsy =
         drowsiness.label == 'Drowsy' && drowsiness.confidence > 80;
 
-    // ── Visual theming ──────────────────────────────────────────────────────
     final borderColor = isDrowsy ? AppColors.red : AppColors.green;
 
     final gradientColors = isDrowsy
@@ -326,10 +341,8 @@ class _DrowsinessAlertBanner extends StatelessWidget {
 
     final bannerIcon =
     isDrowsy ? Icons.bedtime_rounded : Icons.check_circle_rounded;
-
     final bannerTitle =
     isDrowsy ? 'DROWSINESS DETECTED' : 'DRIVER ALERT NORMAL';
-
     final bannerSubtitle =
     isDrowsy ? 'Fatigue: ${drowsiness.label}' : 'Status: ${drowsiness.label}';
 
@@ -386,7 +399,6 @@ class _DrowsinessAlertBanner extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          // Confidence score — same layout as before
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             mainAxisSize: MainAxisSize.min,
@@ -415,7 +427,13 @@ class _DrowsinessAlertBanner extends StatelessWidget {
   }
 }
 
-// ─── Driver Alert Banner ──────────────────────────────────────────────────────
+// ─── Driver Alert Banner — always visible ─────────────────────────────────────
+//
+// NORMAL (no alert): green border + green gradient + shield icon + "VITALS NORMAL" text
+// ALERT  (alert on): orange border + orange gradient + blinking warning icon + alert message
+//
+// ⚠️  Zero logic changes — reads isDriverAlert & alertMessage from DriverLiveMonitor as-is.
+// ─────────────────────────────────────────────────────────────────────────────
 class _DriverAlertBanner extends StatelessWidget {
   final DriverLiveMonitor driverMonitor;
 
@@ -423,18 +441,56 @@ class _DriverAlertBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final isAlert = driverMonitor.isDriverAlert;
+
+    // ── Colors ──────────────────────────────────────────────────────────────
+    final borderColor = isAlert ? AppColors.orange : AppColors.green;
+
+    final gradientColors = isAlert
+        ? (AppColors.alertGradients['WARNING'] ??
+        [const Color(0xFF2D1A00), const Color(0xFF1A0F00)])
+        : (AppColors.alertGradients['SAFE'] ??
+        [const Color(0xFF0A2D0A), const Color(0xFF051A05)]);
+
+    // ── Icon ────────────────────────────────────────────────────────────────
+    final Widget iconWidget = isAlert
+        ? SizedBox(
+      width: 44,
+      height: 44,
+      child: Blinker.fade(
+        startColor: Colors.transparent,
+        endColor: AppColors.orange,
+        duration: const Duration(milliseconds: 500),
+        child: const Icon(
+          Icons.warning_amber_rounded,
+          color: Colors.white,
+          size: 44,
+        ),
+      ),
+    )
+        : const Icon(
+      Icons.shield_rounded,
+      color: Colors.white,
+      size: 44,
+    );
+
+    // ── Text ────────────────────────────────────────────────────────────────
+    final String title = isAlert ? 'DRIVER ALERT' : 'VITALS NORMAL';
+    final String subtitle = isAlert
+        ? (driverMonitor.alertMessage ?? '')
+        : 'All driver vitals are within safe range';
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeInOut,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: AppColors.alertGradients['WARNING'] ??
-              [const Color(0xFF2D1A00), const Color(0xFF1A0F00)],
-        ),
+        gradient: LinearGradient(colors: gradientColors),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.orange, width: 2),
+        border: Border.all(color: borderColor, width: 2),
         boxShadow: [
           BoxShadow(
-            color: AppColors.orange.withValues(alpha: 0.25),
+            color: borderColor.withValues(alpha: 0.25),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -442,28 +498,15 @@ class _DriverAlertBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          SizedBox(
-            width: 44,
-            height: 44,
-            child: Blinker.fade(
-              startColor: Colors.transparent,
-              endColor: AppColors.orange,
-              duration: const Duration(milliseconds: 500),
-              child: const Icon(
-                Icons.warning_amber_rounded,
-                color: Colors.white,
-                size: 44,
-              ),
-            ),
-          ),
+          iconWidget,
           const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'DRIVER ALERT',
-                  style: TextStyle(
+                Text(
+                  title,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                     fontSize: 18,
@@ -471,7 +514,7 @@ class _DriverAlertBanner extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  "${driverMonitor.alertMessage}",
+                  subtitle,
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.9),
                     fontSize: 13,
@@ -519,7 +562,6 @@ class _VitalTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Icon + label
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -539,8 +581,6 @@ class _VitalTile extends StatelessWidget {
               ),
             ],
           ),
-
-          // Value — FittedBox scales down if number is too wide
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             mainAxisSize: MainAxisSize.min,
@@ -573,8 +613,6 @@ class _VitalTile extends StatelessWidget {
               ),
             ],
           ),
-
-          // Subtitle
           Text(
             subtitle,
             style: const TextStyle(
@@ -616,7 +654,6 @@ class _DrowsinessPanel extends StatelessWidget {
 
     return Column(
       children: [
-        // Score bar panel
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
@@ -685,10 +722,7 @@ class _DrowsinessPanel extends StatelessWidget {
             ],
           ),
         ),
-
         const SizedBox(height: 12),
-
-        // Status chip
         Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
