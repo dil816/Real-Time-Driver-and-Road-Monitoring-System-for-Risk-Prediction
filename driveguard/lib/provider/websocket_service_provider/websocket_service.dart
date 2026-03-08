@@ -10,6 +10,7 @@ class ConnectionStateNotifier extends ValueNotifier<bool> {
   ConnectionStateNotifier() : super(false);
 }
 
+
 class FatigueDataNotifier extends ValueNotifier<FatigueData?> {
   FatigueDataNotifier() : super(null);
 }
