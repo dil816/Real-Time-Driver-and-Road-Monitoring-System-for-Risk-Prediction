@@ -333,7 +333,7 @@ class _DrowsinessAlertBanner extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'FATIGUE DETECTED',
+                  'DROWSINESS DETECTED',
                   style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
