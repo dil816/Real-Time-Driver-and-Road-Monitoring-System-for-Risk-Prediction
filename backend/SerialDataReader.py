@@ -1,7 +1,6 @@
 import asyncio
 import json
 import logging
-from typing import Type
 
 import numpy as np
 import serial_asyncio
@@ -13,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 class SerialDataReader:
-    def __init__(self, hrv_port: str, env_port: str, baudrate: int, pipeline: Type[DataPipeline]):
+    def __init__(self, hrv_port: str, env_port: str, baudrate: int, pipeline: type[DataPipeline]):
         self.hrv_port = hrv_port
         self.env_port = env_port
         self.baudrate = baudrate
