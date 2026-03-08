@@ -20,7 +20,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     DahsboardPage(),
     DriverMonitorScreen(),
     FatigueAnalyzeScreen(),
-    BehaviourMonitorScreen(),
+    //BehaviourMonitorScreen(),
   ];
 
   @override
@@ -47,10 +47,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             icon: Icon(Icons.settings_rounded),
             label: '',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.two_wheeler_rounded),
-            label: '',
-          ),
+          // BottomNavigationBarItem(
+          //   icon: Icon(Icons.two_wheeler_rounded),
+          //   label: '',
+          // ),
         ],
       ),
     );
