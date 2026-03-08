@@ -12,6 +12,18 @@ import 'package:haptic_feedback/haptic_feedback.dart';
 import 'package:provider/provider.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
+void _refreshRoadProtection(BuildContext context) {
+  final speedProvider = context.read<SpeedProvider>();
+  final weatherProvider = context.read<WeatherServiceProvider>();
+  final roadProvider = context.read<RoadProtectionProvider>();
+
+  roadProvider.updateProtectionStatus(
+    speed: speedProvider.getSpeed,
+    rainProbability: double.tryParse(weatherProvider.getRainProbability) ?? 0.0,
+    temperature: double.tryParse(weatherProvider.getTemperature) ?? 0.0,
+  );
+}
+
 class DahsboardPage extends StatefulWidget {
   const DahsboardPage({super.key});
 
@@ -32,7 +44,7 @@ class _DahsboardPageState extends State<DahsboardPage> {
         if (!mounted) return;
 
         context.read<WeatherServiceProvider>().getCurentWeather();
-        context.read<RoadProtectionProvider>().checkRoadProtectionStatus(context);
+        _refreshRoadProtection(context);
       });
 
       context.read<SpeedProvider>().getSpeedData();
@@ -119,10 +131,8 @@ class _DahsboardPageState extends State<DahsboardPage> {
                     ),
                   ),
                   const SizedBox(height: 20),
-
                   const ManualSpeedTestCard(),
                   const SizedBox(height: 18),
-
                   _AlertHeroCard(
                     currentSpeed: currentSpeed,
                     detectedLimit: detectedLimit,
@@ -132,7 +142,6 @@ class _DahsboardPageState extends State<DahsboardPage> {
                     isHeavyRainAlert: roadProvider.isHeavyRainProtectionActive,
                   ),
                   const SizedBox(height: 18),
-
                   Row(
                     children: [
                       Expanded(
@@ -160,7 +169,6 @@ class _DahsboardPageState extends State<DahsboardPage> {
                     ],
                   ),
                   const SizedBox(height: 12),
-
                   Row(
                     children: [
                       Expanded(
@@ -179,8 +187,8 @@ class _DahsboardPageState extends State<DahsboardPage> {
                       Expanded(
                         child: _MiniStatCard(
                           title: 'Rain Risk',
-                          value:
-                          roadProvider.displayRainProbability.toStringAsFixed(0),
+                          value: roadProvider.displayRainProbability
+                              .toStringAsFixed(0),
                           suffix: '%',
                           icon: Icons.water_drop_outlined,
                           accent: Colors.cyanAccent,
@@ -190,20 +198,16 @@ class _DahsboardPageState extends State<DahsboardPage> {
                     ],
                   ),
                   const SizedBox(height: 18),
-
                   _StatusBanner(
                     roadProvider: roadProvider,
                     overSpeed: overSpeed,
                     safeSpeed: safeSpeed,
                   ),
                   const SizedBox(height: 18),
-
                   const _DetectedSignCard(),
                   const SizedBox(height: 18),
-
                   const _SpeedSignHistoryCard(),
                   const SizedBox(height: 18),
-
                   const _SensorDeviceCard(),
                 ],
               ),
@@ -246,7 +250,7 @@ class _ManualSpeedTestCardState extends State<ManualSpeedTestCard> {
   void _applySpeed(BuildContext context) {
     final double value = double.tryParse(_speedController.text.trim()) ?? 0;
     context.read<SpeedProvider>().setManualSpeed(value);
-    context.read<RoadProtectionProvider>().checkRoadProtectionStatus(context);
+    _refreshRoadProtection(context);
   }
 
   void _applyLimit(BuildContext context) {
@@ -255,7 +259,7 @@ class _ManualSpeedTestCardState extends State<ManualSpeedTestCard> {
       value,
       label: 'Manual Limit',
     );
-    context.read<RoadProtectionProvider>().checkRoadProtectionStatus(context);
+    _refreshRoadProtection(context);
   }
 
   void _applyWeather(BuildContext context) {
@@ -266,13 +270,13 @@ class _ManualSpeedTestCardState extends State<ManualSpeedTestCard> {
       rainProbability: rain,
       temperature: temp,
     );
-    context.read<RoadProtectionProvider>().checkRoadProtectionStatus(context);
+    _refreshRoadProtection(context);
   }
 
   void _setQuickSpeed(BuildContext context, double speed) {
     _speedController.text = speed.toStringAsFixed(0);
     context.read<SpeedProvider>().setManualSpeed(speed);
-    context.read<RoadProtectionProvider>().checkRoadProtectionStatus(context);
+    _refreshRoadProtection(context);
   }
 
   @override
@@ -360,7 +364,6 @@ class _ManualSpeedTestCardState extends State<ManualSpeedTestCard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 18),
-
                     const Text(
                       'Test Current Speed',
                       style: TextStyle(
@@ -387,9 +390,7 @@ class _ManualSpeedTestCardState extends State<ManualSpeedTestCard> {
                         ElevatedButton(
                           onPressed: () {
                             context.read<SpeedProvider>().increaseManualSpeed(5);
-                            context
-                                .read<RoadProtectionProvider>()
-                                .checkRoadProtectionStatus(context);
+                            _refreshRoadProtection(context);
                             _speedController.text = context
                                 .read<SpeedProvider>()
                                 .getSpeed
@@ -400,9 +401,7 @@ class _ManualSpeedTestCardState extends State<ManualSpeedTestCard> {
                         ElevatedButton(
                           onPressed: () {
                             context.read<SpeedProvider>().decreaseManualSpeed(5);
-                            context
-                                .read<RoadProtectionProvider>()
-                                .checkRoadProtectionStatus(context);
+                            _refreshRoadProtection(context);
                             _speedController.text = context
                                 .read<SpeedProvider>()
                                 .getSpeed
@@ -414,9 +413,7 @@ class _ManualSpeedTestCardState extends State<ManualSpeedTestCard> {
                           onPressed: () async {
                             await context.read<SpeedProvider>().disableManualMode();
                             if (mounted) {
-                              context
-                                  .read<RoadProtectionProvider>()
-                                  .checkRoadProtectionStatus(context);
+                              _refreshRoadProtection(context);
                             }
                           },
                           child: const Text('Live Speed'),
@@ -436,7 +433,6 @@ class _ManualSpeedTestCardState extends State<ManualSpeedTestCard> {
                         _quickButton(context, 120),
                       ],
                     ),
-
                     const SizedBox(height: 18),
                     const Text(
                       'Test Detected Speed Limit',
@@ -484,7 +480,6 @@ class _ManualSpeedTestCardState extends State<ManualSpeedTestCard> {
                         ),
                       ],
                     ),
-
                     const SizedBox(height: 18),
                     const Text(
                       'Test Rain / Heavy Rain',
@@ -520,10 +515,10 @@ class _ManualSpeedTestCardState extends State<ManualSpeedTestCard> {
                           onPressed: () {
                             _rainController.text = '60';
                             _tempController.text = '25';
-                            context.read<RoadProtectionProvider>().setManualNormalRain();
                             context
                                 .read<RoadProtectionProvider>()
-                                .checkRoadProtectionStatus(context);
+                                .setManualNormalRain();
+                            _refreshRoadProtection(context);
                           },
                           child: const Text('Rain Test'),
                         ),
@@ -531,10 +526,10 @@ class _ManualSpeedTestCardState extends State<ManualSpeedTestCard> {
                           onPressed: () {
                             _rainController.text = '90';
                             _tempController.text = '22';
-                            context.read<RoadProtectionProvider>().setManualHeavyRain();
                             context
                                 .read<RoadProtectionProvider>()
-                                .checkRoadProtectionStatus(context);
+                                .setManualHeavyRain();
+                            _refreshRoadProtection(context);
                           },
                           child: const Text('Heavy Rain'),
                         ),
@@ -542,26 +537,25 @@ class _ManualSpeedTestCardState extends State<ManualSpeedTestCard> {
                           onPressed: () {
                             _rainController.text = '10';
                             _tempController.text = '30';
-                            context.read<RoadProtectionProvider>().setManualClearWeather();
                             context
                                 .read<RoadProtectionProvider>()
-                                .checkRoadProtectionStatus(context);
+                                .setManualClearWeather();
+                            _refreshRoadProtection(context);
                           },
                           child: const Text('Clear'),
                         ),
                         ElevatedButton(
                           onPressed: () {
-                            context.read<RoadProtectionProvider>().disableManualWeather();
                             context
                                 .read<RoadProtectionProvider>()
-                                .checkRoadProtectionStatus(context);
+                                .disableManualWeather();
+                            _refreshRoadProtection(context);
                           },
                           child: const Text('Live Weather'),
                         ),
                       ],
                     ),
                     const SizedBox(height: 14),
-
                     Text(
                       'Current Speed: ${speedProvider.getSpeed.toStringAsFixed(1)} km/h',
                       style: const TextStyle(
