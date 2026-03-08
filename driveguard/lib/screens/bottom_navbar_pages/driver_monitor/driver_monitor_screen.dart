@@ -56,7 +56,7 @@ class _DriverMonitorScreenState extends State<DriverMonitorScreen> {
                     ),
                     const SizedBox(height: 20),
 
-                    // Drowsiness Alert Banner
+                    // ── Drowsiness Banner — always visible ──
                     _DrowsinessAlertBanner(fatigueData: fatigueData),
 
                     // Driver Alert Banner
@@ -178,7 +178,7 @@ class _DriverMonitorScreenState extends State<DriverMonitorScreen> {
   }
 }
 
-// Header
+// ─── Header ───────────────────────────────────────────────────────────────────
 class _DriverMonitorHeader extends StatelessWidget {
   final EspDeviceProvider espConnector;
   final DriverLiveMonitor driverMonitor;
@@ -245,8 +245,7 @@ class _DriverMonitorHeader extends StatelessWidget {
                   .startdrivermonitorScan(),
           child: Container(
             width: 88,
-            padding:
-            const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
             decoration: BoxDecoration(
               color: espConnector.isDriverMonitorConnecteed
                   ? AppColors.green.withValues(alpha: 0.15)
@@ -292,7 +291,14 @@ class _DriverMonitorHeader extends StatelessWidget {
   }
 }
 
-// Drowsiness Alert Banner
+// ─── Drowsiness Alert Banner — always visible ─────────────────────────────────
+//
+// GREEN  → label is NOT 'Drowsy' or confidence ≤ 80  (driver is fine)
+// RED    → label == 'Drowsy' AND confidence > 80      (driver is drowsy)
+//
+// No logic changes — only the early-return guard was removed and theming
+// is now driven by the same existing data fields.
+// ─────────────────────────────────────────────────────────────────────────────
 class _DrowsinessAlertBanner extends StatelessWidget {
   final FatigueData? fatigueData;
 
@@ -300,24 +306,42 @@ class _DrowsinessAlertBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Still hide when there is no data at all
     if (fatigueData == null) return const SizedBox.shrink();
+
     final drowsiness = fatigueData!.rawSensorData.drowsiness;
-    if (drowsiness.label != 'Drowsy' || drowsiness.confidence <= 80) {
-      return const SizedBox.shrink();
-    }
+
+    // ── State decision (same condition that was previously used to hide/show) ──
+    final isDrowsy =
+        drowsiness.label == 'Drowsy' && drowsiness.confidence > 80;
+
+    // ── Visual theming ──────────────────────────────────────────────────────
+    final borderColor = isDrowsy ? AppColors.red : AppColors.green;
+
+    final gradientColors = isDrowsy
+        ? (AppColors.alertGradients['CRITICAL'] ??
+        [const Color(0xFF2D0A0A), const Color(0xFF1A0505)])
+        : (AppColors.alertGradients['SAFE'] ??
+        [const Color(0xFF0A2D0A), const Color(0xFF051A05)]);
+
+    final bannerIcon =
+    isDrowsy ? Icons.bedtime_rounded : Icons.check_circle_rounded;
+
+    final bannerTitle =
+    isDrowsy ? 'DROWSINESS DETECTED' : 'DRIVER ALERT NORMAL';
+
+    final bannerSubtitle =
+    isDrowsy ? 'Fatigue: ${drowsiness.label}' : 'Status: ${drowsiness.label}';
 
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: AppColors.alertGradients['CRITICAL'] ??
-              [const Color(0xFF2D0A0A), const Color(0xFF1A0505)],
-        ),
+        gradient: LinearGradient(colors: gradientColors),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.red, width: 2),
+        border: Border.all(color: borderColor, width: 2),
         boxShadow: [
           BoxShadow(
-            color: AppColors.red.withValues(alpha: 0.3),
+            color: borderColor.withValues(alpha: 0.3),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -326,15 +350,15 @@ class _DrowsinessAlertBanner extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const Icon(Icons.bedtime_rounded, color: Colors.white, size: 44),
+          Icon(bannerIcon, color: Colors.white, size: 44),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'DROWSINESS DETECTED',
-                  style: TextStyle(
+                Text(
+                  bannerTitle,
+                  style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                     fontSize: 18,
@@ -342,7 +366,7 @@ class _DrowsinessAlertBanner extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Fatigue: ${drowsiness.label}',
+                  bannerSubtitle,
                   style: TextStyle(
                     color: Colors.white.withValues(alpha: 0.9),
                     fontSize: 13,
@@ -362,6 +386,7 @@ class _DrowsinessAlertBanner extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
+          // Confidence score — same layout as before
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             mainAxisSize: MainAxisSize.min,
@@ -390,7 +415,7 @@ class _DrowsinessAlertBanner extends StatelessWidget {
   }
 }
 
-// Driver Alert Banner
+// ─── Driver Alert Banner ──────────────────────────────────────────────────────
 class _DriverAlertBanner extends StatelessWidget {
   final DriverLiveMonitor driverMonitor;
 
@@ -463,7 +488,7 @@ class _DriverAlertBanner extends StatelessWidget {
   }
 }
 
-// Vital Tile
+// ─── Vital Tile ───────────────────────────────────────────────────────────────
 class _VitalTile extends StatelessWidget {
   final IconData icon;
   final Color iconColor;
@@ -494,7 +519,7 @@ class _VitalTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // Icon + label — Flexible prevents overflow
+          // Icon + label
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -565,7 +590,7 @@ class _VitalTile extends StatelessWidget {
   }
 }
 
-// Drowsiness Panel
+// ─── Drowsiness Panel ─────────────────────────────────────────────────────────
 class _DrowsinessPanel extends StatelessWidget {
   final FatigueData? fatigueData;
 
@@ -649,13 +674,11 @@ class _DrowsinessPanel extends StatelessWidget {
                 children: [
                   Text(
                     'Alert',
-                    style:
-                    TextStyle(color: AppColors.textMuted, fontSize: 11),
+                    style: TextStyle(color: AppColors.textMuted, fontSize: 11),
                   ),
                   Text(
                     'Drowsy',
-                    style:
-                    TextStyle(color: AppColors.textMuted, fontSize: 11),
+                    style: TextStyle(color: AppColors.textMuted, fontSize: 11),
                   ),
                 ],
               ),
@@ -668,13 +691,11 @@ class _DrowsinessPanel extends StatelessWidget {
         // Status chip
         Container(
           width: double.infinity,
-          padding:
-          const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
           decoration: BoxDecoration(
             color: accentColor.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-                color: accentColor.withValues(alpha: 0.3)),
+            border: Border.all(color: accentColor.withValues(alpha: 0.3)),
           ),
           child: Row(
             children: [
