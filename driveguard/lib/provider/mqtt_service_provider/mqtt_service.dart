@@ -13,7 +13,7 @@ class MqttService {
 
   late MqttBrowserClient client;
   final StreamController<DriverProfile> _profileController =
-  StreamController<DriverProfile>.broadcast();
+      StreamController<DriverProfile>.broadcast();
 
   Stream<DriverProfile> get profileStream => _profileController.stream;
 
@@ -30,8 +30,8 @@ class MqttService {
 
     final connMess = MqttConnectMessage()
         .withClientIdentifier(
-      'flutter_companion_${DateTime.now().millisecondsSinceEpoch}',
-    )
+          'flutter_companion_${DateTime.now().millisecondsSinceEpoch}',
+        )
         .withWillQos(MqttQos.atLeastOnce);
     client.connectionMessage = connMess;
 
