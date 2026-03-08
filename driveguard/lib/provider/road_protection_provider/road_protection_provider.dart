@@ -59,6 +59,10 @@ class RoadProtectionProvider extends ChangeNotifier {
   bool _wasOverspeedNotified = false;
   bool _wasRainNotified = false;
   bool _wasHeavyRainNotified = false;
+
+  DateTime? _lastOverspeedNotificationAt;
+  DateTime? _lastRainNotificationAt;
+  DateTime? _lastHeavyRainNotificationAt;
   double? _lastNotifiedSpeedLimit;
 
   SpeedProvider? speedProvider;
@@ -127,23 +131,35 @@ class RoadProtectionProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  bool _canNotify(DateTime? lastTime, Duration cooldown) {
+    if (lastTime == null) return true;
+    return DateTime.now().difference(lastTime) > cooldown;
+  }
+
   void checkRoadProtectionStatus(BuildContext context) {
-    speedProvider = Provider.of<SpeedProvider>(context, listen: false);
-    weatherProvider = Provider.of<WeatherServiceProvider>(
-      context,
-      listen: false,
+    final speed = Provider.of<SpeedProvider>(context, listen: false);
+    final weather = Provider.of<WeatherServiceProvider>(context, listen: false);
+
+    final rain = double.tryParse(weather.getRainProbability) ?? 0.0;
+    final temp = double.tryParse(weather.getTemperature) ?? 0.0;
+
+    updateProtectionStatus(
+      speed: speed.getSpeed,
+      rainProbability: rain,
+      temperature: temp,
     );
+  }
 
-    providerSpeed = speedProvider?.getSpeed ?? 0.0;
-
-    final double liveRain =
-        double.tryParse(weatherProvider?.getRainProbability ?? '0') ?? 0.0;
-    final double liveTemp =
-        double.tryParse(weatherProvider?.getTemperature ?? '0') ?? 0.0;
-
+  void updateProtectionStatus({
+    required double speed,
+    required double rainProbability,
+    required double temperature,
+  }) {
+    providerSpeed = speed;
     providerRainProbability =
-    _manualWeatherMode ? _manualRainProbability : liveRain;
-    providerTemperature = _manualWeatherMode ? _manualTemperature : liveTemp;
+    _manualWeatherMode ? _manualRainProbability : rainProbability;
+    providerTemperature =
+    _manualWeatherMode ? _manualTemperature : temperature;
 
     isRainProtectionActive =
         providerRainProbability > 50 && providerTemperature < 26;
@@ -197,7 +213,10 @@ class RoadProtectionProvider extends ChangeNotifier {
   }
 
   void _handleNotifications() {
-    if (isRoadProtectionActive && !_wasOverspeedNotified) {
+    if (isRoadProtectionActive &&
+        !_wasOverspeedNotified &&
+        _canNotify(_lastOverspeedNotificationAt, const Duration(seconds: 15))) {
+      _lastOverspeedNotificationAt = DateTime.now();
       AppNotificationService.instance.show(
         id: 1001,
         title: 'Overspeed Alert',
@@ -206,7 +225,10 @@ class RoadProtectionProvider extends ChangeNotifier {
     }
     _wasOverspeedNotified = isRoadProtectionActive;
 
-    if (isHeavyRainProtectionActive && !_wasHeavyRainNotified) {
+    if (isHeavyRainProtectionActive &&
+        !_wasHeavyRainNotified &&
+        _canNotify(_lastHeavyRainNotificationAt, const Duration(seconds: 20))) {
+      _lastHeavyRainNotificationAt = DateTime.now();
       AppNotificationService.instance.show(
         id: 1002,
         title: 'Heavy Rain Alert',
@@ -218,7 +240,9 @@ class RoadProtectionProvider extends ChangeNotifier {
 
     if (isRainProtectionActive &&
         !isHeavyRainProtectionActive &&
-        !_wasRainNotified) {
+        !_wasRainNotified &&
+        _canNotify(_lastRainNotificationAt, const Duration(seconds: 20))) {
+      _lastRainNotificationAt = DateTime.now();
       AppNotificationService.instance.show(
         id: 1003,
         title: 'Rain Alert',
@@ -408,6 +432,13 @@ class RoadProtectionProvider extends ChangeNotifier {
             await _playSingleBeep(
               key: 'speed_limit_${speedLimit.toStringAsFixed(0)}',
             );
+
+            updateProtectionStatus(
+              speed: providerSpeed,
+              rainProbability: providerRainProbability,
+              temperature: providerTemperature,
+            );
+            return;
           }
         }
       } else {
