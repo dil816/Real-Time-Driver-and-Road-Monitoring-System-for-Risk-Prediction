@@ -1,0 +1,9 @@
+
+STEP 1: Start the MQTT Broker
+Open a Terminal in PyCharm:
+& "C:\Program Files\mosquitto\mosquitto.exe" -c ".\mosquitto.conf" -v
+
+
+STEP 2: Start the InferLive
+
+
