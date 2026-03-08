@@ -115,8 +115,12 @@ class ENVDataProcessor:
 
             return road_info
         except requests.exceptions.RequestException as e:
-            print(f"Error fetching data: {e}")
-            return None
+            print(f"Error drive context ENV")
+            return {
+                'road_name': 'N/A',
+                'road_type': 'N/A',
+                'drive_speed': speed,
+            }
 
     def determine_driving_context1(self, lat, lon, speed, radius=10):
         try:
