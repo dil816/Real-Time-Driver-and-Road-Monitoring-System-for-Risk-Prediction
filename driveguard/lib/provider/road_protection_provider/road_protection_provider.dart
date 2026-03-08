@@ -9,6 +9,7 @@ import 'package:driveguard/http_client/dio_client.dart';
 import 'package:driveguard/models/road_sign_model.dart';
 import 'package:driveguard/provider/speed_provider/speed_provider.dart';
 import 'package:driveguard/provider/weather_service_provider/weather_service_provider.dart';
+import 'package:driveguard/services/app_notification_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:path_provider/path_provider.dart';
@@ -53,7 +54,12 @@ class RoadProtectionProvider extends ChangeNotifier {
   double _manualTemperature = 28.0;
 
   double? _weatherReferenceSpeed;
+
   bool _wasHeavyRainActive = false;
+  bool _wasOverspeedNotified = false;
+  bool _wasRainNotified = false;
+  bool _wasHeavyRainNotified = false;
+  double? _lastNotifiedSpeedLimit;
 
   SpeedProvider? speedProvider;
   WeatherServiceProvider? weatherProvider;
@@ -135,7 +141,8 @@ class RoadProtectionProvider extends ChangeNotifier {
     final double liveTemp =
         double.tryParse(weatherProvider?.getTemperature ?? '0') ?? 0.0;
 
-    providerRainProbability = _manualWeatherMode ? _manualRainProbability : liveRain;
+    providerRainProbability =
+    _manualWeatherMode ? _manualRainProbability : liveRain;
     providerTemperature = _manualWeatherMode ? _manualTemperature : liveTemp;
 
     isRainProtectionActive =
@@ -166,7 +173,8 @@ class RoadProtectionProvider extends ChangeNotifier {
     } else if (isRainProtectionActive) {
       effectiveSafeSpeed = math.max(0, baseSpeed - 10);
     } else {
-      effectiveSafeSpeed = roadProtectionSpeedLimit > 0 ? roadProtectionSpeedLimit : 0;
+      effectiveSafeSpeed =
+      roadProtectionSpeedLimit > 0 ? roadProtectionSpeedLimit : 0;
     }
 
     isRoadProtectionActive =
@@ -184,7 +192,42 @@ class RoadProtectionProvider extends ChangeNotifier {
     }
 
     _updateSafetyAdvice();
+    _handleNotifications();
     notifyListeners();
+  }
+
+  void _handleNotifications() {
+    if (isRoadProtectionActive && !_wasOverspeedNotified) {
+      AppNotificationService.instance.show(
+        id: 1001,
+        title: 'Overspeed Alert',
+        body: 'Reduce speed to ${effectiveSafeSpeed.toStringAsFixed(0)} km/h',
+      );
+    }
+    _wasOverspeedNotified = isRoadProtectionActive;
+
+    if (isHeavyRainProtectionActive && !_wasHeavyRainNotified) {
+      AppNotificationService.instance.show(
+        id: 1002,
+        title: 'Heavy Rain Alert',
+        body:
+        'Heavy rain detected. Reduce speed to ${effectiveSafeSpeed.toStringAsFixed(0)} km/h',
+      );
+    }
+    _wasHeavyRainNotified = isHeavyRainProtectionActive;
+
+    if (isRainProtectionActive &&
+        !isHeavyRainProtectionActive &&
+        !_wasRainNotified) {
+      AppNotificationService.instance.show(
+        id: 1003,
+        title: 'Rain Alert',
+        body:
+        'Rain detected. Reduce speed to ${effectiveSafeSpeed.toStringAsFixed(0)} km/h',
+      );
+    }
+    _wasRainNotified =
+        isRainProtectionActive && !isHeavyRainProtectionActive;
   }
 
   void _updateSafetyAdvice() {
@@ -351,6 +394,16 @@ class RoadProtectionProvider extends ChangeNotifier {
               label: firstLabel,
               speedLimit: speedLimit,
             );
+
+            if (_lastNotifiedSpeedLimit != speedLimit) {
+              _lastNotifiedSpeedLimit = speedLimit;
+              await AppNotificationService.instance.show(
+                id: 1000,
+                title: 'Speed Sign Detected',
+                body:
+                'Detected speed limit ${speedLimit.toStringAsFixed(0)} km/h',
+              );
+            }
 
             await _playSingleBeep(
               key: 'speed_limit_${speedLimit.toStringAsFixed(0)}',
