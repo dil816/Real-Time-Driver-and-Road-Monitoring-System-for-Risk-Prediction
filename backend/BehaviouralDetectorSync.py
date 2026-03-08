@@ -50,7 +50,7 @@ class BehaviouralDetectorSync:
         self.interpreter.allocate_tensors()
         self.input_details = self.interpreter.get_input_details()
         self.output_details = self.interpreter.get_output_details()
-        logger.info(f"TFLite loaded")
+        logger.info(f"Drowsiness model loaded")
 
         base_options = mp.tasks.BaseOptions
         face_landmarker = mp.tasks.vision.FaceLandmarker
@@ -64,7 +64,7 @@ class BehaviouralDetectorSync:
             num_faces=1
         )
         self.landmarker = face_landmarker.create_from_options(self.options)
-        logger.info(f"mediapipe loaded")
+        logger.info(f"mediapipe model loaded")
 
     def calculate_mouth_aspect_ratio(self, face_landmarks, img_w, img_h):
         if not face_landmarks or len(face_landmarks) < 312:

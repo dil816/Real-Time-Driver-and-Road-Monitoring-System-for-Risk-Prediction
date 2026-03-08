@@ -52,7 +52,7 @@ class DataBuffer:
                 data.append(row)
             df = pd.DataFrame(data)
             ed = self.env_buffer[-1] if self.env_buffer else None
-            logger.info(f"Created DataFrame with {len(df)} rows, clearing buffer")
+            # logger.info(f"Created DataFrame with {len(df)} rows, clearing buffer")
             self.hrv_buffer.clear()
             self.env_buffer.clear()
             self.window_start = datetime.now()
