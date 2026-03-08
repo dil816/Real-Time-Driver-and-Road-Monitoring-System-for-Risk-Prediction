@@ -53,6 +53,7 @@ dependencies:
   audioplayers: ^6.5.1
   shared_preferences: ^2.5.4
   flutter_local_notifications: ^21.0.0
+  mqtt_client: ^10.11.9
 
 dev_dependencies:
   flutter_test:
