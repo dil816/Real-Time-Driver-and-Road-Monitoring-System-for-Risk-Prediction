@@ -1,8 +1,8 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
-import '../../../models/drive_profile.dart';
-import '../../../provider/mqtt_service_provider/mqtt_service.dart';
+import '../../../../models/drive_profile.dart';
+import '../../../../provider/mqtt_service_provider/mqtt_service.dart';
 
 class BehaviourMonitorScreen extends StatefulWidget {
   const BehaviourMonitorScreen({super.key});
