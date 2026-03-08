@@ -59,31 +59,37 @@ class EspDeviceProvider extends ChangeNotifier{
   }
 
   void connect(BluetoothDevice device) async {
-    isConnecting = true;
-    notifyListeners();
-    await device.connect();
-
     try {
-      await device.requestMtu(255);
-    }
-    catch (e) {
-      print(e);
-    }
+      isConnecting = true;
+      notifyListeners();
 
-    List<BluetoothService> services = await device.discoverServices();
-    for (var service in services) {
-      if (service.uuid.toString() == serviceUuid) {
-        for (var char in service.characteristics) {
-          if (char.uuid.toString() == charUuid) {
-            imgCharacteristic = char;
-            _listenForChunks();
+      await device.connect();
+
+      try {
+        await device.requestMtu(255);
+      } catch (e) {
+        print(e);
+      }
+
+      final services = await device.discoverServices();
+      for (final service in services) {
+        if (service.uuid.toString() == serviceUuid) {
+          for (final char in service.characteristics) {
+            if (char.uuid.toString() == charUuid) {
+              imgCharacteristic = char;
+              _listenForChunks();
+            }
           }
         }
       }
+
+      targetDevice = device;
+    } catch (e) {
+      print('ESP connect error: $e');
+    } finally {
+      isConnecting = false;
+      notifyListeners();
     }
-    isConnecting = false;
-    targetDevice = device;
-    notifyListeners();
   }
 
   void _listenForChunks() async {

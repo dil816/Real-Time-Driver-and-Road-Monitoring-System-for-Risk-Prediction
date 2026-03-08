@@ -5,12 +5,16 @@ import 'package:driveguard/provider/speed_provider/speed_provider.dart';
 import 'package:driveguard/provider/splash_provider/splash_provider.dart';
 import 'package:driveguard/provider/weather_service_provider/weather_service_provider.dart';
 import 'package:driveguard/provider/websocket_service_provider/websocket_service.dart';
-import 'package:driveguard/screens/main_navigation_screen/main_navigation_screen.dart';
 import 'package:driveguard/screens/onboarding_screen/onboarding_screen.dart';
+import 'package:driveguard/services/app_notification_service.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  await AppNotificationService.instance.init();
+
   runApp(
     MultiProvider(
       providers: [
@@ -19,7 +23,7 @@ void main() {
         ChangeNotifierProvider(create: (context) => RoadProtectionProvider()),
         ChangeNotifierProvider(create: (context) => EspDeviceProvider()),
         ChangeNotifierProvider(create: (context) => DriverLiveMonitor()),
-        ChangeNotifierProvider(create: (context)=>SplashProvider()),
+        ChangeNotifierProvider(create: (context) => SplashProvider()),
         Provider(create: (context) => WebSocketService()),
       ],
       child: const MyApp(),
@@ -47,7 +51,10 @@ class MyApp extends StatelessWidget {
           brightness: Brightness.dark,
         ),
         textTheme: const TextTheme(
-          headlineLarge: TextStyle(fontSize: 64, fontWeight: FontWeight.w700),
+          headlineLarge: TextStyle(
+            fontSize: 64,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
       home: const ProfessionalOnboarding(),
@@ -57,5 +64,5 @@ class MyApp extends StatelessWidget {
 
 class Globals {
   static final GlobalKey<NavigatorState> navigatorKey =
-      GlobalKey<NavigatorState>();
+  GlobalKey<NavigatorState>();
 }
