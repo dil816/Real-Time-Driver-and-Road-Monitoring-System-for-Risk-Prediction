@@ -21,7 +21,6 @@ class ENVDataProcessor:
     def get_weather(self, lat, lon):
         current_time = time.time()
 
-        # Update weather every 15 minutes
         if current_time - self.last_weather_update < 900:
             return self.weather_cache
 
@@ -67,7 +66,6 @@ class ENVDataProcessor:
 
     @staticmethod
     def get_time_risk_factor():
-        """Calculate risk based on time of day (circadian rhythm)"""
         current_hour = datetime.now().hour
 
         # High risk: 2-6 AM (circadian low)
@@ -117,8 +115,12 @@ class ENVDataProcessor:
 
             return road_info
         except requests.exceptions.RequestException as e:
-            print(f"Error fetching data: {e}")
-            return None
+            print(f"Error drive context ENV")
+            return {
+                'road_name': 'N/A',
+                'road_type': 'N/A',
+                'drive_speed': speed,
+            }
 
     def determine_driving_context1(self, lat, lon, speed, radius=10):
         try:

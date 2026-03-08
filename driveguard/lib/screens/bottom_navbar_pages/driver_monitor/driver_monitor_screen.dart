@@ -4,6 +4,9 @@ import 'package:driveguard/provider/esp_device_provider/esp_device_provider.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../models/fatigue_data.dart';
+import '../../../provider/websocket_service_provider/websocket_service.dart';
+
 class DriverMonitorScreen extends StatefulWidget {
   const DriverMonitorScreen({super.key});
 
@@ -12,6 +15,17 @@ class DriverMonitorScreen extends StatefulWidget {
 }
 
 class _DriverMonitorScreenState extends State<DriverMonitorScreen> {
+  late final WebSocketService _service;
+
+  @override
+  void initState() {
+    super.initState();
+    _service = context.read<WebSocketService>();
+    if (!_service.connectionNotifier.value) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _service.connect());
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer2<DriverLiveMonitor, EspDeviceProvider>(
@@ -66,39 +80,95 @@ class _DriverMonitorScreenState extends State<DriverMonitorScreen> {
                       )
                     : Icon(Icons.warning_rounded, color: Colors.grey, size: 30),
               ),
-              body: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: ListView(
-                  children: [
-                    _buildMonitorCard(
-                      title: 'Blood Oxygen (SpO2)',
-                      value: driver_monitor.bloodOxygenLevel.toStringAsFixed(0),
-                      unit: '%',
-                      icon: Icons.bloodtype,
-                      color: Colors.green,
-                    ),
+              body: ValueListenableBuilder<FatigueData?>(
+                valueListenable: _service.dataNotifier,
+                builder: (context, fatigueData, _) {
+                  return Column(
+                    children: [
+                      Flexible(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8.0,
+                            vertical: 10,
+                          ),
+                          child: GridView.count(
+                            crossAxisCount: 2,
+                            mainAxisSpacing: 10,
+                            crossAxisSpacing: 5,
+                            children: [
+                              _buildMonitorCard(
+                                title: 'Blood Oxygen (SpO2)',
+                                value: driver_monitor.bloodOxygenLevel
+                                    .toStringAsFixed(0),
+                                unit: '%',
+                                icon: Icons.bloodtype,
+                                color: Colors.green,
+                              ),
+                              _buildMonitorCard(
+                                title: 'Cabin Temperature',
+                                value: driver_monitor.temperature
+                                    .toStringAsFixed(0),
+                                unit: '°C',
+                                icon: Icons.thermostat,
+                                color: Colors.orangeAccent,
+                              ),
+                              _buildMonitorCard(
+                                title: 'Blood Pressure',
+                                value: driver_monitor.bloodPressure
+                                    .toStringAsFixed(0),
+                                unit: 'BPM',
+                                icon: Icons.bloodtype_outlined,
+                                color: Colors.redAccent,
+                              ),
+                              _buildMonitorCard(
+                                title: 'Cabin Noise',
+                                value: driver_monitor.cabinNoiseLevel
+                                    .toStringAsFixed(0),
+                                unit: 'dB',
+                                icon: Icons.record_voice_over_outlined,
+                                color: Colors.blueAccent,
+                              ),
 
-                    const SizedBox(height: 16),
+                              // ✅ Add FatigueData cards here
+                              if (fatigueData != null) ...[
+                                _buildMonitorCard(
+                                  title: 'Drowsiness Score',
+                                  value:
+                                      (fatigueData
+                                              .rawSensorData
+                                              .drowsiness
+                                              .confidence)
+                                          .toStringAsFixed(1),
+                                  unit: '%',
+                                  icon: Icons.psychology_outlined,
+                                  color: Colors.purpleAccent,
+                                ),
+                                _buildMonitorCard(
+                                  title: 'Alert Level',
+                                  value: fatigueData
+                                      .rawSensorData
+                                      .drowsiness
+                                      .label,
+                                  unit: '',
+                                  icon: Icons.warning_amber_rounded,
+                                  color: Colors.orange,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
 
-                    _buildMonitorCard(
-                      title: 'Cabin Temperature',
-                      value: driver_monitor.temperature.toStringAsFixed(0),
-                      unit: '°C',
-                      icon: Icons.thermostat,
-                      color: Colors.orangeAccent,
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    _buildMonitorCard(
-                      title: 'Blood Preasure',
-                      value: driver_monitor.bloodPreasure.toStringAsFixed(0),
-                      unit: 'BPM',
-                      icon: Icons.bloodtype_outlined,
-                      color: Colors.redAccent,
-                    ),
-                  ],
-                ),
+                      // Show fatigue alert banner if score is high
+                      // if (fatigueData != null &&
+                      //     fatigueData.alert.level != 'SAFE')
+                      //   _buildFatigueAlertBanner(fatigueData),
+                      driver_monitor.isDriverAlert
+                          ? buildDriverStatusCard(driver_monitor)
+                          : const SizedBox(),
+                    ],
+                  );
+                },
               ),
             );
           },
@@ -126,40 +196,142 @@ class _DriverMonitorScreenState extends State<DriverMonitorScreen> {
             colors: [color.withOpacity(0.1), Colors.white],
           ),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 50, color: color),
-            const SizedBox(height: 10),
-            Text(
-              title,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 48,
-                    fontWeight: FontWeight.bold,
-                  ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const SizedBox(height: 10),
+              Icon(icon, size: 45, color: color),
+              const SizedBox(height: 10),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
                 ),
-                Text(
-                  unit,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w400,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text(
+                    value,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ],
+                  Text(
+                    unit,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
+
+  Widget buildDriverStatusCard(DriverLiveMonitor driver_monitor) {
+    return Container(
+      padding: EdgeInsets.all(20),
+      margin: EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.orange,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.orange.withOpacity(0.4),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.warning_amber_rounded, size: 50, color: Colors.white),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "${driver_monitor.alertMessage}",
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ✅ New fatigue alert banner
+  // Widget _buildFatigueAlertBanner(FatigueData fatigueData) {
+  //   return Container(
+  //     padding: const EdgeInsets.all(20),
+  //     margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+  //     decoration: BoxDecoration(
+  //       color: Colors.deepOrange,
+  //       borderRadius: BorderRadius.circular(20),
+  //       boxShadow: [
+  //         BoxShadow(
+  //           color: Colors.deepOrange.withOpacity(0.4),
+  //           blurRadius: 10,
+  //           offset: const Offset(0, 4),
+  //         ),
+  //       ],
+  //     ),
+  //     child: Row(
+  //       children: [
+  //         const Icon(Icons.bedtime_outlined, size: 50, color: Colors.white),
+  //         const SizedBox(width: 16),
+  //         Expanded(
+  //           child: Column(
+  //             crossAxisAlignment: CrossAxisAlignment.start,
+  //             children: [
+  //               Text(
+  //                 'Fatigue: ${fatigueData.alert.level}',
+  //                 style: const TextStyle(
+  //                   fontSize: 18,
+  //                   fontWeight: FontWeight.bold,
+  //                   color: Colors.white,
+  //                 ),
+  //               ),
+  //               const SizedBox(height: 4),
+  //               Text(
+  //                 fatigueData.alert.action,
+  //                 style: TextStyle(
+  //                   fontSize: 13,
+  //                   color: Colors.white.withOpacity(0.9),
+  //                 ),
+  //               ),
+  //             ],
+  //           ),
+  //         ),
+  //         Text(
+  //           '${(fatigueData.fatigueScore * 100).toStringAsFixed(1)}%',
+  //           style: const TextStyle(
+  //             fontSize: 28,
+  //             fontWeight: FontWeight.bold,
+  //             color: Colors.white,
+  //           ),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 }

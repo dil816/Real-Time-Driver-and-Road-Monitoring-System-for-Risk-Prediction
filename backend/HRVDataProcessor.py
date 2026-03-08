@@ -1,6 +1,7 @@
 import logging
-import numpy as np
 from typing import Optional
+
+import numpy as np
 from scipy.stats import kurtosis, skew
 
 logging.basicConfig(level=logging.INFO)
@@ -10,7 +11,6 @@ logger = logging.getLogger(__name__)
 class HRVDataProcessor:
     @staticmethod
     def remove_outliers(rr: np.ndarray, threshold: float = 0.25) -> np.ndarray:
-        """Remove outliers from RR intervals (critical for PPG)"""
         # print(rr)
         if len(rr) < 3:
             return rr
@@ -27,16 +27,6 @@ class HRVDataProcessor:
 
     @staticmethod
     def extract_features(ibi_values: np.ndarray, remove_outliers: bool = True) -> Optional[dict]:
-        """
-        Extract 19 HRV features from IBI data
-
-        Args:
-            ibi_values: Inter-beat intervals in milliseconds (5-minute window)
-            remove_outliers: Whether to filter outliers
-
-        Returns:
-            Dictionary with 19 HRV features
-        """
         if len(ibi_values) < 10:
             logger.warning(f"Insufficient IBI data: {len(ibi_values)} beats")
             return None
@@ -49,7 +39,7 @@ class HRVDataProcessor:
             logger.warning("No valid IBIs after filtering")
             return None
 
-        # Remove outliers (important for PPG)
+        # Remove outliers
         if remove_outliers:
             rr_original_len = len(rr)
             rr = HRVDataProcessor.remove_outliers(rr)
@@ -81,7 +71,7 @@ class HRVDataProcessor:
         kurt = kurtosis(rr, fisher=True) if len(rr) > 2 else np.nan
         skewness = skew(rr) if len(rr) > 2 else np.nan
 
-        # Relative features (normalized by mean_rr)
+        # Relative features
         sdrr_rel = sdnn / mean_rr if mean_rr != 0 else np.nan
         rmssd_rel = rmssd / mean_rr if mean_rr != 0 else np.nan
         sdsd_rel = sdsd / mean_rr if mean_rr != 0 else np.nan
@@ -89,7 +79,7 @@ class HRVDataProcessor:
         kurt_rel = kurt / mean_rr if mean_rr != 0 and not np.isnan(kurt) else np.nan
         skew_rel = skewness / mean_rr if mean_rr != 0 and not np.isnan(skewness) else np.nan
 
-        # Create feature dictionary
+        # feature dictionary
         features = {
             'MEAN_RR': mean_rr,
             'MEDIAN_RR': median_rr,

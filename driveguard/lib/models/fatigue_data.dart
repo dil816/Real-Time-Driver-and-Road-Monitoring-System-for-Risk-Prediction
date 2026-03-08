@@ -185,8 +185,13 @@ class Weights {
 class RawSensorData {
   final EnvironmentData environment;
   final PhysiologicalData physiological;
+  final DrowsinessData drowsiness;
 
-  RawSensorData({required this.environment, required this.physiological});
+  RawSensorData({
+    required this.environment,
+    required this.physiological,
+    required this.drowsiness,
+  });
 
   factory RawSensorData.fromJson(Map<String, dynamic> json) {
     return RawSensorData(
@@ -195,6 +200,9 @@ class RawSensorData {
       ),
       physiological: PhysiologicalData.fromJson(
         json['physiological'] as Map<String, dynamic>,
+      ),
+      drowsiness: DrowsinessData.fromJson(
+        json['drowsiness'] as Map<String, dynamic>,
       ),
     );
   }
@@ -307,6 +315,20 @@ class HrvProbabilities {
       relaxed: (json['relaxed'] as num).toDouble(),
       normal: (json['normal'] as num).toDouble(),
       stressed: (json['stressed'] as num).toDouble(),
+    );
+  }
+}
+
+class DrowsinessData {
+  final String label;
+  final double confidence;
+
+  DrowsinessData({required this.label, required this.confidence});
+
+  factory DrowsinessData.fromJson(Map<String, dynamic> json) {
+    return DrowsinessData(
+      label: json['label'] as String,
+      confidence: (json['confidence'] as num).toDouble(),
     );
   }
 }
