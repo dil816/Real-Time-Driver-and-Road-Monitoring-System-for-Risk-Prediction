@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:audioplayers/audioplayers.dart';
@@ -27,19 +28,32 @@ class SpeedSignHistoryItem {
 
 class RoadProtectionProvider extends ChangeNotifier {
   final AudioPlayer _beepPlayer = AudioPlayer();
-  Timer? _stopBeepTimer;
+  Timer? _beepStopTimer;
 
   bool isSpeedSignAlertOn = false;
   bool isRoadProtectionActive = false;
   bool isRainProtectionActive = false;
+  bool isHeavyRainProtectionActive = false;
+
+  bool _continuousBeepActive = false;
+  bool _singleBeepActive = false;
+
+  final Map<String, DateTime> _singleBeepHistory = {};
 
   double roadProtectionSpeedLimit = 0.0;
   double providerSpeed = 0.0;
   double providerRainProbability = 0.0;
   double providerTemperature = 0.0;
 
-  double? _lastSpeedLimitAlerted;
-  DateTime? _lastAlertAt;
+  double effectiveSafeSpeed = 0.0;
+  String safetyAdvice = 'Safe to drive';
+
+  bool _manualWeatherMode = false;
+  double _manualRainProbability = 0.0;
+  double _manualTemperature = 28.0;
+
+  double? _weatherReferenceSpeed;
+  bool _wasHeavyRainActive = false;
 
   SpeedProvider? speedProvider;
   WeatherServiceProvider? weatherProvider;
@@ -48,13 +62,62 @@ class RoadProtectionProvider extends ChangeNotifier {
   final List<SpeedSignHistoryItem> _speedSignHistory = [];
 
   bool get getRoadProtectionStatus => isRoadProtectionActive;
+  bool get manualWeatherMode => _manualWeatherMode;
+
+  double get displayRainProbability =>
+      _manualWeatherMode ? _manualRainProbability : providerRainProbability;
+
+  double get displayTemperature =>
+      _manualWeatherMode ? _manualTemperature : providerTemperature;
 
   List<SpeedSignHistoryItem> get speedSignHistory =>
       List.unmodifiable(_speedSignHistory.reversed);
 
-  void setManualSpeedLimit(double limit, {String label = 'Manual Speed Limit'}) {
+  void setManualSpeedLimit(
+      double limit, {
+        String label = 'Manual Speed Limit',
+      }) {
     roadProtectionSpeedLimit = limit;
-    _pushSpeedHistory(label: '$label ${limit.toStringAsFixed(0)}', speedLimit: limit);
+    _pushSpeedHistory(
+      label: '$label ${limit.toStringAsFixed(0)}',
+      speedLimit: limit,
+    );
+    notifyListeners();
+  }
+
+  void setManualWeather({
+    required double rainProbability,
+    required double temperature,
+  }) {
+    _manualWeatherMode = true;
+    _manualRainProbability = rainProbability;
+    _manualTemperature = temperature;
+    notifyListeners();
+  }
+
+  void disableManualWeather() {
+    _manualWeatherMode = false;
+    notifyListeners();
+  }
+
+  void setManualHeavyRain() {
+    _manualWeatherMode = true;
+    _manualRainProbability = 90;
+    _manualTemperature = 22;
+    notifyListeners();
+  }
+
+  void setManualNormalRain() {
+    _manualWeatherMode = true;
+    _manualRainProbability = 60;
+    _manualTemperature = 25;
+    notifyListeners();
+  }
+
+  void setManualClearWeather() {
+    _manualWeatherMode = true;
+    _manualRainProbability = 10;
+    _manualTemperature = 30;
     notifyListeners();
   }
 
@@ -66,18 +129,86 @@ class RoadProtectionProvider extends ChangeNotifier {
     );
 
     providerSpeed = speedProvider?.getSpeed ?? 0.0;
-    providerRainProbability =
+
+    final double liveRain =
         double.tryParse(weatherProvider?.getRainProbability ?? '0') ?? 0.0;
-    providerTemperature =
+    final double liveTemp =
         double.tryParse(weatherProvider?.getTemperature ?? '0') ?? 0.0;
 
-    isRoadProtectionActive =
-        providerSpeed > roadProtectionSpeedLimit && roadProtectionSpeedLimit > 0.0;
+    providerRainProbability = _manualWeatherMode ? _manualRainProbability : liveRain;
+    providerTemperature = _manualWeatherMode ? _manualTemperature : liveTemp;
 
     isRainProtectionActive =
         providerRainProbability > 50 && providerTemperature < 26;
 
+    isHeavyRainProtectionActive =
+        providerRainProbability >= 75 && providerTemperature < 25;
+
+    if (isRainProtectionActive && _weatherReferenceSpeed == null) {
+      _weatherReferenceSpeed =
+      roadProtectionSpeedLimit > 0 ? roadProtectionSpeedLimit : providerSpeed;
+    }
+
+    if (!isRainProtectionActive) {
+      _weatherReferenceSpeed = null;
+    }
+
+    double baseSpeed = 0.0;
+
+    if (roadProtectionSpeedLimit > 0) {
+      baseSpeed = roadProtectionSpeedLimit;
+    } else if (_weatherReferenceSpeed != null) {
+      baseSpeed = _weatherReferenceSpeed!;
+    }
+
+    if (isHeavyRainProtectionActive) {
+      effectiveSafeSpeed = math.max(0, baseSpeed - 20);
+    } else if (isRainProtectionActive) {
+      effectiveSafeSpeed = math.max(0, baseSpeed - 10);
+    } else {
+      effectiveSafeSpeed = roadProtectionSpeedLimit > 0 ? roadProtectionSpeedLimit : 0;
+    }
+
+    isRoadProtectionActive =
+        effectiveSafeSpeed > 0 && providerSpeed > effectiveSafeSpeed;
+
+    if (isHeavyRainProtectionActive && !_wasHeavyRainActive) {
+      _playSingleBeep(key: 'heavy_rain');
+    }
+    _wasHeavyRainActive = isHeavyRainProtectionActive;
+
+    if (isRoadProtectionActive) {
+      _startContinuousBeep();
+    } else {
+      _stopContinuousBeep();
+    }
+
+    _updateSafetyAdvice();
     notifyListeners();
+  }
+
+  void _updateSafetyAdvice() {
+    if (isRoadProtectionActive && isHeavyRainProtectionActive) {
+      safetyAdvice =
+      'Heavy rain and overspeed detected — slow down to ${effectiveSafeSpeed.toStringAsFixed(0)} km/h';
+    } else if (isRoadProtectionActive && isRainProtectionActive) {
+      safetyAdvice =
+      'Rain and overspeed detected — slow down to ${effectiveSafeSpeed.toStringAsFixed(0)} km/h';
+    } else if (isRoadProtectionActive) {
+      safetyAdvice =
+      'Overspeed detected — slow down to ${effectiveSafeSpeed.toStringAsFixed(0)} km/h';
+    } else if (isHeavyRainProtectionActive) {
+      safetyAdvice =
+      'Heavy rain detected — recommended safe speed ${effectiveSafeSpeed.toStringAsFixed(0)} km/h';
+    } else if (isRainProtectionActive) {
+      safetyAdvice =
+      'Rain detected — recommended safe speed ${effectiveSafeSpeed.toStringAsFixed(0)} km/h';
+    } else if (roadProtectionSpeedLimit > 0) {
+      safetyAdvice =
+      'Detected speed limit ${roadProtectionSpeedLimit.toStringAsFixed(0)} km/h';
+    } else {
+      safetyAdvice = 'Safe to drive';
+    }
   }
 
   void _pushSpeedHistory({
@@ -97,20 +228,26 @@ class RoadProtectionProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> _triggerSpeedSignBeep(double speedLimit) async {
+  Future<void> _playSingleBeep({
+    required String key,
+    Duration duration = const Duration(seconds: 2),
+  }) async {
+    if (_continuousBeepActive) return;
+
     final now = DateTime.now();
-    final recentlyAlerted = _lastAlertAt != null &&
-        now.difference(_lastAlertAt!).inMilliseconds < 2500;
+    final lastPlayed = _singleBeepHistory[key];
 
-    if (recentlyAlerted && _lastSpeedLimitAlerted == speedLimit) return;
+    if (lastPlayed != null &&
+        now.difference(lastPlayed).inMilliseconds < 2500) {
+      return;
+    }
 
-    _lastSpeedLimitAlerted = speedLimit;
-    _lastAlertAt = now;
-
+    _singleBeepHistory[key] = now;
+    _singleBeepActive = true;
     isSpeedSignAlertOn = true;
     notifyListeners();
 
-    _stopBeepTimer?.cancel();
+    _beepStopTimer?.cancel();
 
     try {
       await _beepPlayer.stop();
@@ -118,18 +255,58 @@ class RoadProtectionProvider extends ChangeNotifier {
       await _beepPlayer.setReleaseMode(ReleaseMode.loop);
       await _beepPlayer.play(AssetSource('sounds/beep.mp3'));
 
-      _stopBeepTimer = Timer(const Duration(seconds: 2), () async {
+      _beepStopTimer = Timer(duration, () async {
+        if (_continuousBeepActive) return;
         await _beepPlayer.stop();
+        _singleBeepActive = false;
         isSpeedSignAlertOn = false;
         notifyListeners();
       });
     } catch (e) {
       if (kDebugMode) {
-        print('Beep error: $e');
+        print('Single beep error: $e');
       }
+      _singleBeepActive = false;
       isSpeedSignAlertOn = false;
       notifyListeners();
     }
+  }
+
+  Future<void> _startContinuousBeep() async {
+    if (_continuousBeepActive) return;
+
+    _continuousBeepActive = true;
+    isSpeedSignAlertOn = true;
+    _beepStopTimer?.cancel();
+
+    try {
+      await _beepPlayer.stop();
+      await _beepPlayer.setVolume(1.0);
+      await _beepPlayer.setReleaseMode(ReleaseMode.loop);
+      await _beepPlayer.play(AssetSource('sounds/beep.mp3'));
+      notifyListeners();
+    } catch (e) {
+      if (kDebugMode) {
+        print('Continuous beep error: $e');
+      }
+      _continuousBeepActive = false;
+      isSpeedSignAlertOn = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> _stopContinuousBeep() async {
+    if (!_continuousBeepActive) return;
+
+    try {
+      await _beepPlayer.stop();
+    } catch (_) {}
+
+    _continuousBeepActive = false;
+    if (!_singleBeepActive) {
+      isSpeedSignAlertOn = false;
+    }
+    notifyListeners();
   }
 
   Future<void> getRoadSignPrediction({required Uint8List imageBytes}) async {
@@ -175,7 +352,9 @@ class RoadProtectionProvider extends ChangeNotifier {
               speedLimit: speedLimit,
             );
 
-            await _triggerSpeedSignBeep(speedLimit);
+            await _playSingleBeep(
+              key: 'speed_limit_${speedLimit.toStringAsFixed(0)}',
+            );
           }
         }
       } else {
@@ -194,7 +373,7 @@ class RoadProtectionProvider extends ChangeNotifier {
 
   @override
   void dispose() {
-    _stopBeepTimer?.cancel();
+    _beepStopTimer?.cancel();
     _beepPlayer.dispose();
     super.dispose();
   }

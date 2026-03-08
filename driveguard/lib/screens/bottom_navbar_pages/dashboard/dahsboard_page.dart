@@ -72,10 +72,14 @@ class _DahsboardPageState extends State<DahsboardPage> {
           Widget? child,
           ) {
         final double currentSpeed = speedProvider.getSpeed;
-        final double speedLimit = roadProvider.roadProtectionSpeedLimit;
-        final bool overSpeed = speedLimit > 0 && currentSpeed > speedLimit;
+        final double detectedLimit = roadProvider.roadProtectionSpeedLimit;
+        final double safeSpeed = roadProvider.effectiveSafeSpeed;
 
-        _handleHaptic(overSpeed);
+        final bool overSpeed =
+            roadProvider.isRoadProtectionActive && safeSpeed > 0;
+        final bool heavyRain = roadProvider.isHeavyRainProtectionActive;
+
+        _handleHaptic(overSpeed || heavyRain);
 
         return Scaffold(
           backgroundColor: const Color(0xFF071224),
@@ -95,10 +99,7 @@ class _DahsboardPageState extends State<DahsboardPage> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                 children: [
-                  _TopBar(
-                    weatherText:
-                    '${weatherProvider.condition} ${weatherProvider.temperature}°C',
-                  ),
+                  const _TopBar(),
                   const SizedBox(height: 20),
                   const Text(
                     'Road Safety Dashboard',
@@ -118,16 +119,20 @@ class _DahsboardPageState extends State<DahsboardPage> {
                     ),
                   ),
                   const SizedBox(height: 20),
+
                   const ManualSpeedTestCard(),
                   const SizedBox(height: 18),
+
                   _AlertHeroCard(
                     currentSpeed: currentSpeed,
-                    speedLimit: speedLimit,
+                    detectedLimit: detectedLimit,
+                    safeSpeed: safeSpeed,
                     overSpeed: overSpeed,
                     isRainAlert: roadProvider.isRainProtectionActive,
-                    isRoadAlert: roadProvider.isRoadProtectionActive,
+                    isHeavyRainAlert: roadProvider.isHeavyRainProtectionActive,
                   ),
                   const SizedBox(height: 18),
+
                   Row(
                     children: [
                       Expanded(
@@ -143,8 +148,9 @@ class _DahsboardPageState extends State<DahsboardPage> {
                       Expanded(
                         child: _MiniStatCard(
                           title: 'Detected Limit',
-                          value:
-                          speedLimit > 0 ? speedLimit.toStringAsFixed(0) : '--',
+                          value: detectedLimit > 0
+                              ? detectedLimit.toStringAsFixed(0)
+                              : '--',
                           suffix: 'km/h',
                           icon: Icons.traffic_rounded,
                           accent: Colors.redAccent,
@@ -154,41 +160,50 @@ class _DahsboardPageState extends State<DahsboardPage> {
                     ],
                   ),
                   const SizedBox(height: 12),
+
                   Row(
                     children: [
                       Expanded(
                         child: _MiniStatCard(
-                          title: 'Rain Risk',
-                          value: '${weatherProvider.rainProbability}',
-                          suffix: '%',
-                          icon: Icons.water_drop_outlined,
-                          accent: Colors.cyanAccent,
+                          title: 'Safe Speed',
+                          value:
+                          safeSpeed > 0 ? safeSpeed.toStringAsFixed(0) : '--',
+                          suffix: 'km/h',
+                          icon: Icons.shield_outlined,
+                          accent: Colors.greenAccent,
+                          highlighted: roadProvider.isRainProtectionActive ||
+                              roadProvider.isHeavyRainProtectionActive,
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: _MiniStatCard(
-                          title: 'Temperature',
-                          value: '${weatherProvider.temperature}',
-                          suffix: '°C',
-                          icon: weatherProvider.isDayTime
-                              ? Icons.wb_sunny_outlined
-                              : Icons.nights_stay_rounded,
-                          accent: Colors.orangeAccent,
+                          title: 'Rain Risk',
+                          value:
+                          roadProvider.displayRainProbability.toStringAsFixed(0),
+                          suffix: '%',
+                          icon: Icons.water_drop_outlined,
+                          accent: Colors.cyanAccent,
+                          highlighted: heavyRain,
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 18),
+
                   _StatusBanner(
                     roadProvider: roadProvider,
                     overSpeed: overSpeed,
+                    safeSpeed: safeSpeed,
                   ),
                   const SizedBox(height: 18),
+
                   const _DetectedSignCard(),
                   const SizedBox(height: 18),
+
                   const _SpeedSignHistoryCard(),
                   const SizedBox(height: 18),
+
                   const _SensorDeviceCard(),
                 ],
               ),
@@ -212,6 +227,10 @@ class _ManualSpeedTestCardState extends State<ManualSpeedTestCard> {
   TextEditingController(text: '60');
   final TextEditingController _limitController =
   TextEditingController(text: '60');
+  final TextEditingController _rainController =
+  TextEditingController(text: '80');
+  final TextEditingController _tempController =
+  TextEditingController(text: '22');
 
   bool _expanded = false;
 
@@ -219,6 +238,8 @@ class _ManualSpeedTestCardState extends State<ManualSpeedTestCard> {
   void dispose() {
     _speedController.dispose();
     _limitController.dispose();
+    _rainController.dispose();
+    _tempController.dispose();
     super.dispose();
   }
 
@@ -233,6 +254,17 @@ class _ManualSpeedTestCardState extends State<ManualSpeedTestCard> {
     context.read<RoadProtectionProvider>().setManualSpeedLimit(
       value,
       label: 'Manual Limit',
+    );
+    context.read<RoadProtectionProvider>().checkRoadProtectionStatus(context);
+  }
+
+  void _applyWeather(BuildContext context) {
+    final double rain = double.tryParse(_rainController.text.trim()) ?? 0;
+    final double temp = double.tryParse(_tempController.text.trim()) ?? 30;
+
+    context.read<RoadProtectionProvider>().setManualWeather(
+      rainProbability: rain,
+      temperature: temp,
     );
     context.read<RoadProtectionProvider>().checkRoadProtectionStatus(context);
   }
@@ -280,7 +312,7 @@ class _ManualSpeedTestCardState extends State<ManualSpeedTestCard> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
-                              'Manual Speed Test',
+                              'Manual Test Panel',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 18,
@@ -289,11 +321,13 @@ class _ManualSpeedTestCardState extends State<ManualSpeedTestCard> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              speedProvider.manualMode
-                                  ? 'Manual mode enabled'
-                                  : 'Using live GPS speed',
+                              speedProvider.manualMode ||
+                                  roadProvider.manualWeatherMode
+                                  ? 'Manual testing enabled'
+                                  : 'Using live GPS and live weather',
                               style: TextStyle(
-                                color: speedProvider.manualMode
+                                color: speedProvider.manualMode ||
+                                    roadProvider.manualWeatherMode
                                     ? Colors.orangeAccent
                                     : const Color(0xFF2BD576),
                                 fontWeight: FontWeight.w700,
@@ -326,6 +360,7 @@ class _ManualSpeedTestCardState extends State<ManualSpeedTestCard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 18),
+
                     const Text(
                       'Test Current Speed',
                       style: TextStyle(
@@ -384,7 +419,7 @@ class _ManualSpeedTestCardState extends State<ManualSpeedTestCard> {
                                   .checkRoadProtectionStatus(context);
                             }
                           },
-                          child: const Text('Live Mode'),
+                          child: const Text('Live Speed'),
                         ),
                       ],
                     ),
@@ -401,6 +436,7 @@ class _ManualSpeedTestCardState extends State<ManualSpeedTestCard> {
                         _quickButton(context, 120),
                       ],
                     ),
+
                     const SizedBox(height: 18),
                     const Text(
                       'Test Detected Speed Limit',
@@ -448,7 +484,84 @@ class _ManualSpeedTestCardState extends State<ManualSpeedTestCard> {
                         ),
                       ],
                     ),
+
+                    const SizedBox(height: 18),
+                    const Text(
+                      'Test Rain / Heavy Rain',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _rainController,
+                      keyboardType: TextInputType.number,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: _inputDecoration('Rain probability %'),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _tempController,
+                      keyboardType: TextInputType.number,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: _inputDecoration('Temperature °C'),
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        ElevatedButton(
+                          onPressed: () => _applyWeather(context),
+                          child: const Text('Set Weather'),
+                        ),
+                        ElevatedButton(
+                          onPressed: () {
+                            _rainController.text = '60';
+                            _tempController.text = '25';
+                            context.read<RoadProtectionProvider>().setManualNormalRain();
+                            context
+                                .read<RoadProtectionProvider>()
+                                .checkRoadProtectionStatus(context);
+                          },
+                          child: const Text('Rain Test'),
+                        ),
+                        ElevatedButton(
+                          onPressed: () {
+                            _rainController.text = '90';
+                            _tempController.text = '22';
+                            context.read<RoadProtectionProvider>().setManualHeavyRain();
+                            context
+                                .read<RoadProtectionProvider>()
+                                .checkRoadProtectionStatus(context);
+                          },
+                          child: const Text('Heavy Rain'),
+                        ),
+                        ElevatedButton(
+                          onPressed: () {
+                            _rainController.text = '10';
+                            _tempController.text = '30';
+                            context.read<RoadProtectionProvider>().setManualClearWeather();
+                            context
+                                .read<RoadProtectionProvider>()
+                                .checkRoadProtectionStatus(context);
+                          },
+                          child: const Text('Clear'),
+                        ),
+                        ElevatedButton(
+                          onPressed: () {
+                            context.read<RoadProtectionProvider>().disableManualWeather();
+                            context
+                                .read<RoadProtectionProvider>()
+                                .checkRoadProtectionStatus(context);
+                          },
+                          child: const Text('Live Weather'),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 14),
+
                     Text(
                       'Current Speed: ${speedProvider.getSpeed.toStringAsFixed(1)} km/h',
                       style: const TextStyle(
@@ -459,6 +572,22 @@ class _ManualSpeedTestCardState extends State<ManualSpeedTestCard> {
                     const SizedBox(height: 6),
                     Text(
                       'Detected Limit: ${roadProvider.roadProtectionSpeedLimit.toStringAsFixed(1)} km/h',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Safe Speed: ${roadProvider.effectiveSafeSpeed.toStringAsFixed(1)} km/h',
+                      style: const TextStyle(
+                        color: Colors.greenAccent,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Rain: ${roadProvider.displayRainProbability.toStringAsFixed(0)}% | Temp: ${roadProvider.displayTemperature.toStringAsFixed(0)}°C',
                       style: const TextStyle(
                         color: Colors.white70,
                         fontWeight: FontWeight.w700,
@@ -524,9 +653,7 @@ class _ManualSpeedTestCardState extends State<ManualSpeedTestCard> {
 }
 
 class _TopBar extends StatelessWidget {
-  final String weatherText;
-
-  const _TopBar({required this.weatherText});
+  const _TopBar();
 
   @override
   Widget build(BuildContext context) {
@@ -537,9 +664,15 @@ class _TopBar extends StatelessWidget {
           WeatherServiceProvider weatherProvider,
           Widget? child,
           ) {
+        final String tempText =
+            '${roadProvider.displayTemperature.toStringAsFixed(0)}°C';
+        final String rainText =
+            '${roadProvider.displayRainProbability.toStringAsFixed(0)}% rain';
+
         return Row(
           children: [
-            roadProvider.isRoadProtectionActive
+            roadProvider.isRoadProtectionActive ||
+                roadProvider.isHeavyRainProtectionActive
                 ? Blinker.fade(
               startColor: Colors.orangeAccent,
               endColor: Colors.redAccent,
@@ -573,22 +706,36 @@ class _TopBar extends StatelessWidget {
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: Colors.white10),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Icon(
-                    weatherProvider.isDayTime
-                        ? Icons.wb_sunny_outlined
-                        : Icons.nights_stay_rounded,
-                    color: Colors.orangeAccent,
-                    size: 18,
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        weatherProvider.isDayTime
+                            ? Icons.wb_sunny_outlined
+                            : Icons.nights_stay_rounded,
+                        color: Colors.orangeAccent,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        tempText,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(height: 4),
                   Text(
-                    weatherText,
+                    rainText,
                     style: const TextStyle(
-                      color: Colors.white70,
+                      color: Colors.white54,
                       fontWeight: FontWeight.w700,
+                      fontSize: 12,
                     ),
                   ),
                 ],
@@ -603,29 +750,35 @@ class _TopBar extends StatelessWidget {
 
 class _AlertHeroCard extends StatelessWidget {
   final double currentSpeed;
-  final double speedLimit;
+  final double detectedLimit;
+  final double safeSpeed;
   final bool overSpeed;
   final bool isRainAlert;
-  final bool isRoadAlert;
+  final bool isHeavyRainAlert;
 
   const _AlertHeroCard({
     required this.currentSpeed,
-    required this.speedLimit,
+    required this.detectedLimit,
+    required this.safeSpeed,
     required this.overSpeed,
     required this.isRainAlert,
-    required this.isRoadAlert,
+    required this.isHeavyRainAlert,
   });
 
   @override
   Widget build(BuildContext context) {
     final Color alertColor = overSpeed
         ? Colors.redAccent
+        : isHeavyRainAlert
+        ? Colors.deepOrangeAccent
         : isRainAlert
         ? Colors.orangeAccent
         : const Color(0xFF2BD576);
 
     final String statusText = overSpeed
         ? 'Overspeed detected'
+        : isHeavyRainAlert
+        ? 'Heavy rain danger'
         : isRainAlert
         ? 'Weather caution'
         : 'Safe driving';
@@ -669,7 +822,7 @@ class _AlertHeroCard extends StatelessWidget {
           Center(
             child: SizedBox(
               width: 290,
-              height: 290,
+              height: 320,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
@@ -677,7 +830,7 @@ class _AlertHeroCard extends StatelessWidget {
                     size: const Size(290, 290),
                     painter: GaugePainter(
                       speed: currentSpeed,
-                      safeSpeed: speedLimit,
+                      safeSpeed: safeSpeed,
                       maxSpeed: 120,
                     ),
                   ),
@@ -707,8 +860,33 @@ class _AlertHeroCard extends StatelessWidget {
                   Positioned(
                     top: 8,
                     child: _DetectedSpeedBadge(
-                      value: speedLimit,
+                      value: detectedLimit,
                       alert: overSpeed,
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.greenAccent.withOpacity(0.10),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: Colors.greenAccent.withOpacity(0.25),
+                        ),
+                      ),
+                      child: Text(
+                        safeSpeed > 0
+                            ? 'Safe speed ${safeSpeed.toStringAsFixed(0)} km/h'
+                            : 'No safe speed available',
+                        style: const TextStyle(
+                          color: Colors.greenAccent,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -835,31 +1013,40 @@ class _MiniStatCard extends StatelessWidget {
 class _StatusBanner extends StatelessWidget {
   final RoadProtectionProvider roadProvider;
   final bool overSpeed;
+  final double safeSpeed;
 
   const _StatusBanner({
     required this.roadProvider,
     required this.overSpeed,
+    required this.safeSpeed,
   });
 
   @override
   Widget build(BuildContext context) {
-    final String message = overSpeed
-        ? 'Driver should slow down immediately'
-        : roadProvider.isRainProtectionActive
-        ? 'Rain probability is high — drive carefully'
-        : 'Road condition looks safe';
+    late final String message;
+    late final Color color;
+    late final IconData icon;
 
-    final Color color = overSpeed
-        ? Colors.redAccent
-        : roadProvider.isRainProtectionActive
-        ? Colors.orangeAccent
-        : const Color(0xFF2BD576);
-
-    final IconData icon = overSpeed
-        ? Icons.crisis_alert_rounded
-        : roadProvider.isRainProtectionActive
-        ? Icons.thunderstorm_outlined
-        : Icons.verified_outlined;
+    if (overSpeed) {
+      message =
+      'Overspeed detected — reduce speed to ${safeSpeed.toStringAsFixed(0)} km/h';
+      color = Colors.redAccent;
+      icon = Icons.crisis_alert_rounded;
+    } else if (roadProvider.isHeavyRainProtectionActive) {
+      message =
+      'Heavy rain detected — reduce speed to ${safeSpeed.toStringAsFixed(0)} km/h';
+      color = Colors.deepOrangeAccent;
+      icon = Icons.thunderstorm_rounded;
+    } else if (roadProvider.isRainProtectionActive) {
+      message =
+      'Rain detected — reduce speed to ${safeSpeed.toStringAsFixed(0)} km/h';
+      color = Colors.orangeAccent;
+      icon = Icons.grain_rounded;
+    } else {
+      message = roadProvider.safetyAdvice;
+      color = const Color(0xFF2BD576);
+      icon = Icons.verified_outlined;
+    }
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -1094,8 +1281,7 @@ class _SensorDeviceCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.camera_alt_outlined,
-                      color: Colors.cyanAccent),
+                  const Icon(Icons.camera_alt_outlined, color: Colors.cyanAccent),
                   const SizedBox(width: 10),
                   const Expanded(
                     child: Text(
@@ -1342,7 +1528,8 @@ class _HistoryChartPainter extends CustomPainter {
     for (int i = 0; i < values.length; i++) {
       final x = left + (width / math.max(values.length - 1, 1)) * i;
       final normalized =
-          (values[i] - minValue) / ((maxValue - minValue) == 0 ? 1 : (maxValue - minValue));
+          (values[i] - minValue) /
+              ((maxValue - minValue) == 0 ? 1 : (maxValue - minValue));
       final y = top + height - (normalized * height);
       points.add(Offset(x, y));
     }
