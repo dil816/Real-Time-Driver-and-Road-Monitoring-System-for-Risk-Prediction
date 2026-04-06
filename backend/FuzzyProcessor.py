@@ -6,10 +6,6 @@ warnings.filterwarnings('ignore')
 
 
 class FuzzyProcessor:
-    """
-    Adaptive Fuzzy Logic System for Driver Fatigue Detection
-    Integrates Environmental, Physiological, and Behavioral data
-    """
 
     def __init__(self):
         self.alert_threshold = {
@@ -23,10 +19,6 @@ class FuzzyProcessor:
     @staticmethod
     def fuzzify(value: float, low: Tuple[float, float],
                 medium: Tuple[float, float], high: Tuple[float, float]) -> Dict[str, float]:
-        """
-        Fuzzify a crisp value into fuzzy membership values
-        Returns membership degrees for low, medium, and high
-        """
         membership = {'low': 0.0, 'medium': 0.0, 'high': 0.0}
 
         # Low membership
@@ -50,9 +42,6 @@ class FuzzyProcessor:
         return membership
 
     def fuzzify_environmental(self, env_data: Dict) -> Dict:
-        """
-        Fuzzify environmental parameters
-        """
         # Time risk mapping
         time_risk_map = {
             'low': 0.2,
@@ -126,9 +115,6 @@ class FuzzyProcessor:
         }
 
     def fuzzify_physiological(self, phys_data: Dict) -> Dict:
-        """
-        Fuzzify physiological parameters from HRV/PPG analysis
-        """
         if phys_data.get('status') != 'success':
             return {
                 'score': 0.5,
@@ -170,10 +156,6 @@ class FuzzyProcessor:
         }
 
     def fuzzify_behavioral(self, behave_data: Dict, light_level: float) -> Dict:
-        """
-        Fuzzify behavioral parameters from camera analysis
-        Uses actual head pose (x_mean, y_mean, z_mean), MAR, and yawn data
-        """
         if not behave_data:
             return {
                 'score': 0.3,
@@ -268,9 +250,6 @@ class FuzzyProcessor:
     @staticmethod
     def calculate_adaptive_weights(env_fuzzy: Dict, phys_fuzzy: Dict,
                                    behave_fuzzy: Dict, env_data: Dict) -> Dict[str, float]:
-        """
-        Calculate adaptive weights (X, Y, Z) using fuzzy rules
-        """
         # Base weights on sensor reliability
         total_reliability = (env_fuzzy['reliability'] +
                              phys_fuzzy['reliability'] +
@@ -338,9 +317,6 @@ class FuzzyProcessor:
         }
 
     def defuzzify(self, fatigue_score: float) -> Dict:
-        """
-        Defuzzification: Convert fuzzy fatigue score to alert level
-        """
         if fatigue_score >= self.alert_threshold['critical']:
             return {
                 'level': 'CRITICAL',
@@ -371,9 +347,6 @@ class FuzzyProcessor:
             }
 
     def process_sensor_data(self, sensor_json: Dict) -> Dict:
-        """
-        Main fuzzy inference engine
-        """
         timestamp = datetime.now().isoformat()
 
         # Extract data sections
