@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 class DataBuffer:
-    def __init__(self, window_seconds: int = 30, max_size: int = 10000):
+    def __init__(self, window_seconds: int = 30, max_size: int = 100):
         self.window_seconds = window_seconds
         self.max_size = max_size
         self.hrv_buffer = deque(maxlen=max_size)
