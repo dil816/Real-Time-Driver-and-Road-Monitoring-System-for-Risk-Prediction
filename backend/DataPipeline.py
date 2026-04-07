@@ -19,13 +19,15 @@ logger = logging.getLogger(__name__)
 
 
 class DataPipeline:
-    def __init__(self, model_path: str, env_api_key: str = None, hrv_serial_port: str = 'COM7',
+    def __init__(self, model_path: str, env_api_key: str = None, ble_service_uuid: str = '',
+                 ble_characteristic_uuid: str = '', ble_device_name: str = '',
                  env_serial_port: str = 'COM3', window_seconds: int = 30,
                  baud_rate: int = 115200):
         self.websocket_server = ConnectionManager()
         self.fuzzy_processor = FuzzyProcessor()
         self.ml_engine = MLInferenceEngine()
-        self.serial_reader = SerialDataReader(hrv_serial_port, env_serial_port, baud_rate, self)
+        self.serial_reader = SerialDataReader(ble_service_uuid, ble_characteristic_uuid, ble_device_name,
+                                              env_serial_port, baud_rate, self)
         self.hrv_processor = HRVDataProcessor()
         self.env_processor = ENVDataProcessor(weather_api_key=env_api_key)
         self.buffer = DataBuffer(window_seconds=window_seconds)
@@ -43,6 +45,7 @@ class DataPipeline:
 
     async def process_data(self, data_array: np.ndarray, env_data):
         try:
+            print("process")
             if len(data_array) == 0:
                 logger.warning("Received empty data array, skipping")
                 return
@@ -123,13 +126,13 @@ class DataPipeline:
         try:
             self.ml_engine.load_model()
             self.processing_task = asyncio.create_task(self.periodic_inference())
-            if not await self.serial_reader.hrv_reader_connect():
-                raise RuntimeError("Failed to HRV connect to serial reader")
+            # if not await self.serial_reader.hrv_reader_connect():
+            #     raise RuntimeError("Failed to HRV connect to serial reader")
             if not await self.serial_reader.env_reader_connect():
                 raise RuntimeError("Failed to ENV connect to serial reader")
             self.hrv_serial_read_task = asyncio.create_task(self.serial_reader.hrv_read_loop())
             self.env_serial_read_task = asyncio.create_task(self.serial_reader.env_read_loop())
-            self.serial_process_task = asyncio.create_task(self.serial_reader.process_loop())
+            # self.serial_process_task = asyncio.create_task(self.serial_reader.process_loop())
             logger.info("Serial reader started")
             # if not await self.bhv_processor.connect():
             #     raise RuntimeError("Failed to connect to video source")
@@ -162,7 +165,10 @@ class DataPipeline:
             logger.info("Stopping serial reader...")
             self.serial_reader.running = False
             tasks = [
-                task for task in [self.env_serial_read_task, self.hrv_serial_read_task, self.serial_process_task]
+                task for task in [
+                    # self.serial_process_task,
+                    self.env_serial_read_task,
+                    self.hrv_serial_read_task]
                 if task and not task.done()
             ]
             for task in tasks:
@@ -176,7 +182,7 @@ class DataPipeline:
                 except asyncio.TimeoutError:
                     logger.warning("Timeout stopping serial tasks")
             try:
-                await self.serial_reader.hrv_reader_disconnect()
+                # await self.serial_reader.hrv_reader_disconnect()
                 await self.serial_reader.env_reader_disconnect()
                 logger.info("Serial reader disconnected")
             except Exception as e:
