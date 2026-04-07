@@ -14,7 +14,6 @@ logger = logging.getLogger(__name__)
 
 class MLInferenceEngine:
     def __init__(self):
-        self.predictions = deque(maxlen=1000)
         self.hrv_prediction_history = deque(maxlen=5)
         self.stress_labels = {0: 'Relaxed', 1: 'Normal', 2: 'Stressed'}
         self.model = None
