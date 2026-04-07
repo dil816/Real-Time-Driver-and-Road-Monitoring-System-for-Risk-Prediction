@@ -12,7 +12,9 @@ logger = logging.getLogger(__name__)
 manager = ConnectionManager()
 pipeline = DataPipeline(model_path="face_landmarker.task",
                         env_api_key="9d01f5ea97d45f73c4fc7557b27cf0cd",
-                        hrv_serial_port='COM9',
+                        ble_service_uuid="4fafc201-1fb5-459e-8fcc-c5c9c331914b",
+                        ble_characteristic_uuid="beb5483e-36e1-4688-b7f5-ea07361b26a8",
+                        ble_device_name="HumanMonitor-BLE",
                         env_serial_port='COM3',
                         window_seconds=30,
                         baud_rate=115200)
