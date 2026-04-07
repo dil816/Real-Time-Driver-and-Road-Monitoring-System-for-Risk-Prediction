@@ -27,7 +27,7 @@ class DataPipeline:
         self.fuzzy_processor = FuzzyProcessor()
         self.ml_engine = MLInferenceEngine()
         self.serial_reader = SerialDataReader(ble_service_uuid, ble_characteristic_uuid, ble_device_name,
-                                              env_serial_port, baud_rate, self)
+                                              env_serial_port, baud_rate, self.process_data)
         self.hrv_processor = HRVDataProcessor()
         self.env_processor = ENVDataProcessor(weather_api_key=env_api_key)
         self.buffer = DataBuffer(window_seconds=window_seconds)

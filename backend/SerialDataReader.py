@@ -7,18 +7,16 @@ from datetime import datetime
 import serial_asyncio
 from bleak import BleakScanner, BleakClient
 
-import DataPipeline
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
 class SerialDataReader:
     def __init__(self, ble_service_uuid: str, ble_characteristic_uuid: str, ble_device_name: str, env_port: str,
-                 baudrate: int, pipeline: type[DataPipeline]):
+                 baudrate: int, data_process_callback):
         self.env_port = env_port
         self.baudrate = baudrate
-        self.pipeline = pipeline
+        self.data_process_callback = data_process_callback
         self.env_reader = None
         self.env_writer = None
         self.address = None
@@ -71,7 +69,7 @@ class SerialDataReader:
                 self.hrv_deque.append(ibi)
             if len(self.hrv_deque) > 30:
                 env_data = self.latest_env
-                await self.pipeline.process_data(list(self.hrv_deque), env_data)
+                await self.data_process_callback(list(self.hrv_deque), env_data)
         except Exception as exc:
             print(f"[{timestamp}] Parse error – raw='{raw}' ({exc})")
 
