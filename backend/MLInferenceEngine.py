@@ -24,7 +24,7 @@ class MLInferenceEngine:
         self.model = joblib.load('random_forest_model.pkl')
         logger.info("HRV model loaded")
 
-    async def predict(self, df: pd.DataFrame):
+    def predict(self, df: pd.DataFrame):
         if self.model is None:
             logger.warning("HRV Model not loaded")
             return None
