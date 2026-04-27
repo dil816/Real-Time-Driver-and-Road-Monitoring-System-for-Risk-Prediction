@@ -156,7 +156,9 @@ class DriverLiveMonitor extends ChangeNotifier {
     double temp  = double.tryParse(data[2]) ?? 0;
     double noise = double.tryParse(data[3]) ?? 0;
 
-    bloodPressure     = bp;
+    double calculatedBp = (bp > 0) ? (60000.0 / bp) : 0;
+
+    bloodPressure     = calculatedBp;
     bloodOxygenLevel  = spo2;
     temperature       = temp;
     cabinNoiseLevel   = noise;
