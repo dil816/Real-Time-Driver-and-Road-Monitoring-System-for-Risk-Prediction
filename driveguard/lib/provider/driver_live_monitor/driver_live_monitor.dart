@@ -151,8 +151,8 @@ class DriverLiveMonitor extends ChangeNotifier {
   final AudioPlayer audioPlayer = AudioPlayer();
 
   void setData(List<String> data) {
-    double bp    = double.tryParse(data[0]) ?? 0;
-    double spo2  = double.tryParse(data[1]) ?? 0;
+    double bp    = double.tryParse(data[1]) ?? 0;
+    double spo2  = double.tryParse(data[0]) ?? 0;
     double temp  = double.tryParse(data[2]) ?? 0;
     double noise = double.tryParse(data[3]) ?? 0;
 
