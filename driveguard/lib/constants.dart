@@ -7,7 +7,7 @@ class AppConfig {
   //static const String lanIp = "192.168.43.211";
   //static const String lanIp = "192.168.43.230";
   //static const String lanIp = "10.66.211.92";
-  static const String lanIp = "10.66.211.130";
+  static const String lanIp = "192.168.8.141";
 
   static String get wsBaseUrl {
     if (kIsWeb) {
