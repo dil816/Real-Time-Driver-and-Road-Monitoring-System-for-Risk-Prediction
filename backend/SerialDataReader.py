@@ -1,30 +1,32 @@
 import asyncio
 import json
 import logging
+import threading
 from collections import deque
 from datetime import datetime
 
 import serial_asyncio
-from bleak import BleakScanner, BleakClient
+from bleak import BleakClient
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
 class SerialDataReader:
-    def __init__(self, ble_service_uuid: str, ble_characteristic_uuid: str, ble_device_name: str, env_port: str,
+    def __init__(self, ble_mac_address: str, ble_characteristic_uuid: str, ble_device_name: str, env_port: str,
                  baudrate: int, data_process_callback):
+        self.hrv_read_stop_event = threading.Event()
         self.env_port = env_port
         self.baudrate = baudrate
         self.data_process_callback = data_process_callback
         self.env_reader = None
         self.env_writer = None
-        self.address = None
+        # self.address = None
         self.running = False
         self.reconnect_delay = 5
         self.hrv_deque = deque(maxlen=400)
         self.latest_env = None
-        self.SERVICE_UUID = ble_service_uuid
+        self.MAC_ADDRESS = ble_mac_address
         self.CHARACTERISTIC_UUID = ble_characteristic_uuid
         self.DEVICE_NAME = ble_device_name
 
@@ -75,26 +77,26 @@ class SerialDataReader:
 
     async def hrv_read_loop(self):
         print(f"Scanning for '{self.DEVICE_NAME}' …")
-        device = await asyncio.to_thread(
-            lambda: asyncio.run(
-                BleakScanner.find_device_by_name(self.DEVICE_NAME, timeout=15.0)
-            )
-        )
-        # device = await BleakScanner.find_device_by_name(self.DEVICE_NAME, timeout=15.0)
-        if device is None:
-            print(f"ERROR: '{self.DEVICE_NAME}' not found.")
-            return
-        print(f"Found: {device.name}  [{device.address}]")
-        self.address = device.address
-        print(f"Connecting to {self.address} …")
-        async with BleakClient(self.address, timeout=20.0) as client:
+        # device = await asyncio.to_thread(
+        #     lambda: asyncio.run(
+        #         BleakScanner.find_device_by_name(self.DEVICE_NAME, timeout=15.0)
+        #     )
+        # )
+        # # device = await BleakScanner.find_device_by_name(self.DEVICE_NAME, timeout=15.0)
+        # if device is None:
+        #     print(f"ERROR: '{self.DEVICE_NAME}' not found.")
+        #     return
+        # print(f"Found: {device.name}  [{device.address}]")
+        # self.address = device.address
+        print(f"Connecting to {self.MAC_ADDRESS} …")
+        async with BleakClient(self.MAC_ADDRESS, timeout=20.0) as client:
             if not client.is_connected:
                 print("Connection failed.")
                 return
             print(f"Connected!  (MTU={client.mtu_size})")
             await client.start_notify(self.CHARACTERISTIC_UUID, self.notification_handler)
             try:
-                while client.is_connected:
+                while client.is_connected and not self.hrv_read_stop_event.is_set():
                     await asyncio.sleep(1)
             except asyncio.CancelledError:
                 pass

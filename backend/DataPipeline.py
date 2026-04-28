@@ -19,14 +19,14 @@ logger = logging.getLogger(__name__)
 
 
 class DataPipeline:
-    def __init__(self, model_path: str, env_api_key: str = None, ble_service_uuid: str = '',
+    def __init__(self, model_path: str, env_api_key: str = None, ble_mac_address: str = '',
                  ble_characteristic_uuid: str = '', ble_device_name: str = '',
                  env_serial_port: str = 'COM3', window_seconds: int = 30,
                  baud_rate: int = 115200):
         self.websocket_server = ConnectionManager()
         self.fuzzy_processor = FuzzyProcessor()
         self.ml_engine = MLInferenceEngine()
-        self.serial_reader = SerialDataReader(ble_service_uuid, ble_characteristic_uuid, ble_device_name,
+        self.serial_reader = SerialDataReader(ble_mac_address, ble_characteristic_uuid, ble_device_name,
                                               env_serial_port, baud_rate, self.process_data)
         self.hrv_processor = HRVDataProcessor()
         self.env_processor = ENVDataProcessor(weather_api_key=env_api_key)
@@ -130,7 +130,10 @@ class DataPipeline:
             #     raise RuntimeError("Failed to HRV connect to serial reader")
             if not await self.serial_reader.env_reader_connect():
                 raise RuntimeError("Failed to ENV connect to serial reader")
-            self.hrv_serial_read_task = asyncio.create_task(self.serial_reader.hrv_read_loop())
+            self.hrv_serial_read_task = asyncio.create_task(
+                asyncio.to_thread(lambda: asyncio.run(self.serial_reader.hrv_read_loop()))
+            )
+            # self.hrv_serial_read_task = asyncio.create_task(self.serial_reader.hrv_read_loop())
             self.env_serial_read_task = asyncio.create_task(self.serial_reader.env_read_loop())
             # self.serial_process_task = asyncio.create_task(self.serial_reader.process_loop())
             logger.info("Serial reader started")
@@ -163,6 +166,7 @@ class DataPipeline:
             await asyncio.gather(self.processing_task, return_exceptions=True)
         if self.serial_reader:
             logger.info("Stopping serial reader...")
+            self.serial_reader.hrv_read_stop_event.set()
             self.serial_reader.running = False
             tasks = [
                 task for task in [
