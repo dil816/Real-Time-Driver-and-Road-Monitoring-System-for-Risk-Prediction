@@ -60,12 +60,16 @@ class SerialDataReader:
             temp_c = float(parts[2])
             noise = float(parts[3])
             bpm = ibi if ibi > 0 else 0.0
+            # print(
+            #     f"[{timestamp}] "
+            #     f"🩸 SpO2: {f'{spo2:3d}%'}  "
+            #     f"❤️  IBI: {f'{bpm:5.1f}'}  "
+            #     f"🌡  Temp: {f'{temp_c:4.1f}°C'}  "
+            #     f"🔊 Noise: {f'{noise:5.1f} dB'}"
+            # )
             print(
                 f"[{timestamp}] "
-                f"🩸 SpO2: {f'{spo2:3d}%'}  "
-                f"❤️  IBI: {f'{bpm:5.1f}'}  "
-                f"🌡  Temp: {f'{temp_c:4.1f}°C'}  "
-                f"🔊 Noise: {f'{noise:5.1f} dB'}"
+                f"IBI: {f'{bpm:5.1f}'}  "
             )
             if ibi > 0:
                 self.hrv_deque.append(ibi)
