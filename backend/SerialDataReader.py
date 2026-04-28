@@ -55,10 +55,10 @@ class SerialDataReader:
             parts = raw.split(",")
             if len(parts) != 4:
                 raise ValueError(f"Expected 4 fields, got {len(parts)}: '{raw}'")
-            spo2 = int(parts[0])
+            # spo2 = int(parts[0])
             ibi = float(parts[1])
-            temp_c = float(parts[2])
-            noise = float(parts[3])
+            # temp_c = float(parts[2])
+            # noise = float(parts[3])
             bpm = ibi if ibi > 0 else 0.0
             # print(
             #     f"[{timestamp}] "
