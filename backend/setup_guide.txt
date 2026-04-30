@@ -1,6 +1,7 @@
 
 STEP 1: Start the MQTT Broker
 Open a Terminal in PyCharm:
+cd D:\Research\Real-Time-Driver-and-Road-Monitoring-System-for-Risk-Prediction\backend
 & "C:\Program Files\mosquitto\mosquitto.exe" -c ".\mosquitto.conf" -v
 
 
