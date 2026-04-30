@@ -1,5 +1,6 @@
 import 'package:driveguard/provider/driver_live_monitor/driver_live_monitor.dart';
 import 'package:driveguard/provider/esp_device_provider/esp_device_provider.dart';
+import 'package:driveguard/provider/profile_provider/profile_provider.dart';
 import 'package:driveguard/provider/road_protection_provider/road_protection_provider.dart';
 import 'package:driveguard/provider/speed_provider/speed_provider.dart';
 import 'package:driveguard/provider/splash_provider/splash_provider.dart';
@@ -25,6 +26,9 @@ Future<void> main() async {
         ChangeNotifierProvider(create: (context) => DriverLiveMonitor()),
         ChangeNotifierProvider(create: (context) => SplashProvider()),
         Provider(create: (context) => WebSocketService()),
+        ChangeNotifierProvider(                          // ← ADD THIS
+          create: (context) => ProfileProvider('192.168.1.100:8765'),
+        ),
       ],
       child: const MyApp(),
     ),
