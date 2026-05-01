@@ -110,6 +110,7 @@
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/widgets.dart';
 
+
 class DriverLiveMonitor extends ChangeNotifier {
 
   double bloodOxygenLevel = 0;
@@ -149,6 +150,7 @@ class DriverLiveMonitor extends ChangeNotifier {
   String? alertMessage;
 
   final AudioPlayer audioPlayer = AudioPlayer();
+  final AudioPlayer _beepPlayer = AudioPlayer();
 
   void setData(List<String> data) {
     double bp    = double.tryParse(data[1]) ?? 0;
@@ -204,6 +206,7 @@ class DriverLiveMonitor extends ChangeNotifier {
     if (isDriverAlert) {
       alertMessage = buildAlertMessage();
       playAlertSound();
+      _playBeep();
     } else {
       alertMessage = "Driver Condition Normal";
       stopAlertSound();
@@ -228,5 +231,16 @@ class DriverLiveMonitor extends ChangeNotifier {
 
   void stopAlertSound() async {
     await audioPlayer.stop();
+  }
+
+  void _playBeep() async {
+    await _beepPlayer.stop();
+    await _beepPlayer.play(AssetSource('sounds/beep.mp3'));
+  }
+  @override
+  void dispose() {
+    audioPlayer.dispose();
+    _beepPlayer.dispose();
+    super.dispose();
   }
 }
