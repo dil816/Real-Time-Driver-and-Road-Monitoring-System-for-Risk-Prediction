@@ -153,12 +153,14 @@ class DriverLiveMonitor extends ChangeNotifier {
   final AudioPlayer _beepPlayer = AudioPlayer();
 
   void setData(List<String> data) {
-    double bp    = double.tryParse(data[0]) ?? 0;
-    double spo2  = double.tryParse(data[1]) ?? 0;
+    double bp    = double.tryParse(data[1]) ?? 0;
+    double spo2  = double.tryParse(data[0]) ?? 0;
     double temp  = double.tryParse(data[2]) ?? 0;
     double noise = double.tryParse(data[3]) ?? 0;
 
-    bloodPressure     = bp;
+    double calculatedBp = (bp > 0) ? (60000.0 / bp) : 0;
+
+    bloodPressure     = calculatedBp;
     bloodOxygenLevel  = spo2;
     temperature       = temp;
     cabinNoiseLevel   = noise;

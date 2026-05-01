@@ -46,7 +46,7 @@ class _FatigueAnalyzeScreenState extends State<FatigueAnalyzeScreen> {
       return;
     }
 
-    if (score > 85) {
+    if (score > 55) {
       _lastAlertTime = now;
       _playBeep(times: 3); // 3 beeps for critical
       AppNotificationService.instance.show(
@@ -55,7 +55,7 @@ class _FatigueAnalyzeScreenState extends State<FatigueAnalyzeScreen> {
         body:
             'Fatigue score: ${score.toStringAsFixed(1)}% — Stop driving immediately!',
       );
-    } else if (score > 70) {
+    } else if (score > 50) {
       _lastAlertTime = now;
       _playBeep(times: 1); // 1 beep for high
       AppNotificationService.instance.show(

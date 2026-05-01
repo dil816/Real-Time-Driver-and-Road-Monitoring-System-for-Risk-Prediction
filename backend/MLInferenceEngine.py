@@ -14,7 +14,6 @@ logger = logging.getLogger(__name__)
 
 class MLInferenceEngine:
     def __init__(self):
-        self.predictions = deque(maxlen=1000)
         self.hrv_prediction_history = deque(maxlen=5)
         self.stress_labels = {0: 'Relaxed', 1: 'Normal', 2: 'Stressed'}
         self.model = None
@@ -25,7 +24,7 @@ class MLInferenceEngine:
         self.model = joblib.load('random_forest_model.pkl')
         logger.info("HRV model loaded")
 
-    async def predict(self, df: pd.DataFrame):
+    def predict(self, df: pd.DataFrame):
         if self.model is None:
             logger.warning("HRV Model not loaded")
             return None
