@@ -4,12 +4,14 @@ import 'dart:convert';
 import 'package:driveguard/constants.dart';
 import 'package:driveguard/models/fatigue_data.dart';
 import 'package:flutter/foundation.dart';
+import 'package:intl/intl.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
+
+import '../../services/fatigue_alert_service.dart';
 
 class ConnectionStateNotifier extends ValueNotifier<bool> {
   ConnectionStateNotifier() : super(false);
 }
-
 
 class FatigueDataNotifier extends ValueNotifier<FatigueData?> {
   FatigueDataNotifier() : super(null);
@@ -18,41 +20,59 @@ class FatigueDataNotifier extends ValueNotifier<FatigueData?> {
 class HistoryNotifier extends ValueNotifier<List<HistoryPoint>> {
   HistoryNotifier() : super(const []);
 
+  static const int _maxHistorySize = 20;
+
   void addPoint(FatigueData data) {
     final list = List<HistoryPoint>.from(value);
     list.add(
       HistoryPoint(
-        time: DateTime.parse(
-          data.timestamp,
-        ).toLocal().toString().substring(11, 19),
+        time: DateFormat(
+          'HH:mm:ss',
+        ).format(DateTime.parse(data.timestamp).toLocal()),
         score: data.fatigueScore,
         env: data.components.environmental.score,
         phys: data.components.physiological.score,
         behav: data.components.behavioral.score,
       ),
     );
-    if (list.length > 20) list.removeAt(0);
+    if (list.length > _maxHistorySize) list.removeAt(0);
     value = list;
   }
 }
 
 class WebSocketService {
+  WebSocketService({AlertService? alertService})
+    : _alertService = alertService ?? AlertService.instance;
+
+  final AlertService _alertService;
+
   WebSocketChannel? _channel;
   int _reconnectAttempts = 0;
   static const int _maxReconnectAttempts = 5;
   static const Duration _reconnectDelay = Duration(seconds: 3);
   Timer? _reconnectTimer;
+  bool _isConnected = false;
+  String? _url;
 
   final connectionNotifier = ConnectionStateNotifier();
   final dataNotifier = FatigueDataNotifier();
   final historyNotifier = HistoryNotifier();
 
   void connect({String? url}) {
+    if (_isConnected) return;
+    _isConnected = true;
     _reconnectAttempts = 0;
-    _connectWebSocket(url ?? AppConfig.wsBaseUrl);
+    _url = url ?? AppConfig.wsBaseUrl;
+    _connectWebSocket(_url!);
+  }
+
+  void reconnect() {
+    _isConnected = false;
+    connect(url: _url);
   }
 
   void _connectWebSocket(String url) {
+    _channel?.sink.close();
     try {
       _channel = WebSocketChannel.connect(Uri.parse(url));
       connectionNotifier.value = true;
@@ -66,28 +86,33 @@ class WebSocketService {
             final data = FatigueData.fromJson(json);
             dataNotifier.value = data;
             historyNotifier.addPoint(data);
+            _alertService.evaluate(data.fatigueScore);
           } catch (e) {
             if (kDebugMode) print('Error parsing message: $e');
           }
         },
         onError: (error) {
           if (kDebugMode) print('WebSocket error: $error');
+          _isConnected = false;
           connectionNotifier.value = false;
           _scheduleReconnect(url);
         },
         onDone: () {
           if (kDebugMode) print('WebSocket closed');
+          _isConnected = false;
           connectionNotifier.value = false;
           _scheduleReconnect(url);
         },
       );
     } catch (e) {
       if (kDebugMode) print('Error creating WebSocket: $e');
+      _isConnected = false;
       connectionNotifier.value = false;
     }
   }
 
   void _scheduleReconnect(String url) {
+    _reconnectTimer?.cancel();
     if (_reconnectAttempts < _maxReconnectAttempts) {
       _reconnectAttempts++;
       if (kDebugMode) {
@@ -102,9 +127,11 @@ class WebSocketService {
   void dispose() {
     _reconnectTimer?.cancel();
     _channel?.sink.close();
+    _isConnected = false;
     // TODO: should be removed in follow 3
     connectionNotifier.dispose();
     dataNotifier.dispose();
     historyNotifier.dispose();
+    _alertService.dispose();
   }
 }

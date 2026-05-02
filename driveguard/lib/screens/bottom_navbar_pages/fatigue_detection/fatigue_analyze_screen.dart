@@ -1,11 +1,9 @@
-import 'package:audioplayers/audioplayers.dart';
 import 'package:driveguard/models/fatigue_data.dart';
 import 'package:driveguard/provider/websocket_service_provider/websocket_service.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../../services/app_notification_service.dart';
 import '../../../theme.dart';
 import '../../../widgets/component_score_card.dart';
 import '../../../widgets/dashboard_card.dart';
@@ -19,10 +17,11 @@ class FatigueAnalyzeScreen extends StatefulWidget {
 
 class _FatigueAnalyzeScreenState extends State<FatigueAnalyzeScreen> {
   late final WebSocketService _service;
-  final AudioPlayer _beepPlayer = AudioPlayer();
 
-  DateTime? _lastAlertTime;
-  static const _alertCooldown = Duration(seconds: 30);
+  // final AudioPlayer _beepPlayer = AudioPlayer();
+  //
+  // DateTime? _lastAlertTime;
+  // static const _alertCooldown = Duration(seconds: 30);
 
   @override
   void initState() {
@@ -30,57 +29,57 @@ class _FatigueAnalyzeScreenState extends State<FatigueAnalyzeScreen> {
     _service = context.read<WebSocketService>();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _service.connect();
-      _service.dataNotifier.addListener(_onDataChanged);
+      //_service.dataNotifier.addListener(_onDataChanged);
     });
   }
 
-  void _onDataChanged() {
-    final data = _service.dataNotifier.value;
-    if (data == null) return;
+  // void _onDataChanged() {
+  //   final data = _service.dataNotifier.value;
+  //   if (data == null) return;
+  //
+  //   final score = data.fatigueScore * 100;
+  //
+  //   final now = DateTime.now();
+  //   if (_lastAlertTime != null &&
+  //       now.difference(_lastAlertTime!) < _alertCooldown) {
+  //     return;
+  //   }
+  //
+  //   if (score > 55) {
+  //     _lastAlertTime = now;
+  //     _playBeep(times: 3); // 3 beeps for critical
+  //     AppNotificationService.instance.show(
+  //       id: 1002,
+  //       title: '🚨 CRITICAL Fatigue Level!',
+  //       body:
+  //           'Fatigue score: ${score.toStringAsFixed(1)}% — Stop driving immediately!',
+  //     );
+  //   } else if (score > 50) {
+  //     _lastAlertTime = now;
+  //     _playBeep(times: 1); // 1 beep for high
+  //     AppNotificationService.instance.show(
+  //       id: 1001,
+  //       title: '⚠️ High Fatigue Detected!',
+  //       body:
+  //           'Fatigue score: ${score.toStringAsFixed(1)}% — Please pull over and rest.',
+  //     );
+  //   }
+  // }
 
-    final score = data.fatigueScore * 100;
-
-    final now = DateTime.now();
-    if (_lastAlertTime != null &&
-        now.difference(_lastAlertTime!) < _alertCooldown) {
-      return;
-    }
-
-    if (score > 55) {
-      _lastAlertTime = now;
-      _playBeep(times: 3); // 3 beeps for critical
-      AppNotificationService.instance.show(
-        id: 1002,
-        title: '🚨 CRITICAL Fatigue Level!',
-        body:
-            'Fatigue score: ${score.toStringAsFixed(1)}% — Stop driving immediately!',
-      );
-    } else if (score > 50) {
-      _lastAlertTime = now;
-      _playBeep(times: 1); // 1 beep for high
-      AppNotificationService.instance.show(
-        id: 1001,
-        title: '⚠️ High Fatigue Detected!',
-        body:
-            'Fatigue score: ${score.toStringAsFixed(1)}% — Please pull over and rest.',
-      );
-    }
-  }
-
-  Future<void> _playBeep({int times = 1}) async {
-    await _beepPlayer.stop();
-
-    for (int i = 0; i < times; i++) {
-      await _beepPlayer.play(AssetSource('sounds/beep.mp3'));
-      await Future.delayed(const Duration(seconds: 3));
-      await _beepPlayer.stop();
-
-      // Small gap between beeps
-      if (i < times - 1) {
-        await Future.delayed(const Duration(milliseconds: 500));
-      }
-    }
-  }
+  // Future<void> _playBeep({int times = 1}) async {
+  //   await _beepPlayer.stop();
+  //
+  //   for (int i = 0; i < times; i++) {
+  //     await _beepPlayer.play(AssetSource('sounds/beep.mp3'));
+  //     await Future.delayed(const Duration(seconds: 3));
+  //     await _beepPlayer.stop();
+  //
+  //     // Small gap between beeps
+  //     if (i < times - 1) {
+  //       await Future.delayed(const Duration(milliseconds: 500));
+  //     }
+  //   }
+  // }
 
   // Future<void> _playBeep() async {
   //   await _beepPlayer.stop();
@@ -95,7 +94,7 @@ class _FatigueAnalyzeScreenState extends State<FatigueAnalyzeScreen> {
   void dispose() {
     // TODO: Can uncommented future if want
     //_service.dispose();
-    _service.dataNotifier.removeListener(_onDataChanged);
+    //_service.dataNotifier.removeListener(_onDataChanged);
     super.dispose();
   }
 
@@ -634,6 +633,16 @@ class _LineChart extends StatelessWidget {
         lineTouchData: LineTouchData(
           touchTooltipData: LineTouchTooltipData(
             getTooltipColor: (_) => AppColors.surface,
+            getTooltipItems: (touchedSpots) {
+              return touchedSpots.map((spot) {
+                final names = ['Score', 'Environment', 'Physical', 'Behavior'];
+                final name = names[spot.barIndex];
+                return LineTooltipItem(
+                  '$name: ${spot.y.toStringAsFixed(2)}',
+                  const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                );
+              }).toList();
+            },
           ),
         ),
       ),
