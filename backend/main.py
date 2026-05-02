@@ -15,7 +15,7 @@ pipeline = DataPipeline(model_path="face_landmarker.task",
                         ble_mac_address="58:8C:81:A7:68:0A",
                         ble_characteristic_uuid="beb5483e-36e1-4688-b7f5-ea07361b26a8",
                         ble_device_name="HumanMonitor-BLE",
-                        env_serial_port='COM9',
+                        env_serial_port='COM3',
                         window_seconds=30,
                         baud_rate=115200)
 
