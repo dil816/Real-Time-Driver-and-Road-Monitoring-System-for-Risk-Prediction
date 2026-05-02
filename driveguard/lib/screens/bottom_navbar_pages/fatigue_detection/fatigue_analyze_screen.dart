@@ -236,7 +236,7 @@ class _HeaderWidget extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'Driver Fatigue\nMonitoring System',
+                    'Fatigue\nMonitoring',
                     style: TextStyle(
                       color: AppColors.textPrimary,
                       fontSize: 28,
