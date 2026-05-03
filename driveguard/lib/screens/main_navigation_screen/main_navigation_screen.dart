@@ -17,6 +17,7 @@ class MainNavigationScreen extends StatefulWidget {
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   int _index = 0;
+
   // String _host = '192.168.1.100:8765';       // ← ADD
   // ProfileProvider? _provider;
 
@@ -36,9 +37,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   void _onHostChanged(String newHost) {
     // Update the GLOBAL provider instead of a local one
-    context.read<ProfileProvider>().updateHost(newHost);  // ← reads from MultiProvider
+    context.read<ProfileProvider>().updateHost(
+      newHost,
+    ); // ← reads from MultiProvider
   }
-
 
   // final pages = <Widget>[
   //   DahsboardPage(),
@@ -54,7 +56,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       DriverMonitorScreen(),
       FatigueAnalyzeScreen(),
       DashboardScreen(),
-      SettingsScreen(                            // ← ADD 4th tab
+      SettingsScreen(
+        // ← ADD 4th tab
         currentHost: host,
         onHostChanged: _onHostChanged,
       ),
@@ -70,20 +73,16 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard_rounded),
+            icon: Icon(Icons.signpost_outlined),
             label: '',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.monitor_heart_rounded),
+            icon: Icon(Icons.theater_comedy_outlined),
             label: '',
           ),
-          BottomNavigationBarItem(icon: Icon(Icons.sick_rounded), label: ''),
+          BottomNavigationBarItem(icon: Icon(Icons.sick_outlined), label: ''),
           BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard_rounded),
-            label: '',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard),
+            icon: Icon(Icons.add_circle_outline_rounded),
             label: '',
           ),
           BottomNavigationBarItem(

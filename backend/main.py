@@ -34,7 +34,7 @@ async def lifespan(app_: FastAPI):
 app = FastAPI(title="Real-time Data Processing Pipeline", lifespan=lifespan)
 
 
-@app.websocket("/ws")
+@app.websocket("/predictions")
 async def websocket_endpoint(websocket: WebSocket):
     await pipeline.websocket_server.connect(websocket)
     try:

@@ -5,8 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="dda13275-8336-40bc-9602-9c5e33197a03" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/driveguard/lib/screens/bottom_navbar_pages/fatigue_detection/fatigue_analyze_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/driveguard/lib/screens/bottom_navbar_pages/fatigue_detection/fatigue_analyze_screen.dart" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -33,7 +33,7 @@
   <component name="GithubPullRequestsUISettings">{
   &quot;selectedUrlAndAccountId&quot;: {
     &quot;url&quot;: &quot;https://github.com/dil816/Real-Time-Driver-and-Road-Monitoring-System-for-Risk-Prediction.git&quot;,
-    &quot;accountId&quot;: &quot;d96e8414-3868-4ff0-b943-3612c915093c&quot;
+    &quot;accountId&quot;: &quot;4b786b96-26fb-45b0-b13c-8a26617fe44c&quot;
   }
 }</component>
   <component name="ProjectColorInfo">{
@@ -53,14 +53,25 @@
     &quot;RunOnceActivity.cidr.known.project.marker&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.readMode.enableVisualFormatting&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
+    &quot;ai.playground.ignore.import.keys.banner.in.settings&quot;: &quot;true&quot;,
     &quot;cf.first.check.clang-format&quot;: &quot;false&quot;,
     &quot;cidr.known.project.marker&quot;: &quot;true&quot;,
     &quot;dart.analysis.tool.window.visible&quot;: &quot;false&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;road-monitoring&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;fatigue-detection&quot;,
     &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
-    &quot;show.migrate.to.gradle.popup&quot;: &quot;false&quot;
+    &quot;show.migrate.to.gradle.popup&quot;: &quot;false&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
 }</component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-js-predefined-d6986cc7102b-9b0f141eb926-JavaScript-PY-253.29346.142" />
+        <option value="bundled-python-sdk-f2b7a9f6281b-6e1f45a539f7-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-253.29346.142" />
+      </set>
+    </attachedChunks>
+  </component>
   <component name="TaskManager">
     <task active="true" id="Default" summary="Default task">
       <changelist id="dda13275-8336-40bc-9602-9c5e33197a03" name="Changes" comment="" />
@@ -68,8 +79,13 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1772548474176</updated>
+      <workItem from="1777740171713" duration="36000" />
+      <workItem from="1777740698036" duration="2000" />
     </task>
     <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
   </component>
   <component name="github-copilot-workspace">
     <instructionFileLocations>
